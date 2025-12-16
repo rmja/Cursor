@@ -1,0 +1,22 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <Authors>Rasmus Melchior Jacobsen</Authors>
+    <Description>Entity Framework Core integration for cursor-based pagination. Provides extension methods to convert IQueryable queries into cursor-paginated results with support for single and compound keys.</Description>
+    <PackageProjectUrl>https://github.com/rmja/Cursor</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>pagination;cursor;entity-framework;ef-core;async</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/rmja/Cursor.git</RepositoryUrl>
+    <Version>0.0.1</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.EntityFrameworkCore" Version="10.0.0" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\Cursor\Cursor.csproj" />
+  </ItemGroup>
+</Project>

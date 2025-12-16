@@ -1,0 +1,35 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <LangVersion>latest</LangVersion>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <IsAotCompatible>true</IsAotCompatible>
+    <Authors>Rasmus Melchior Jacobsen</Authors>
+    <Description>A C# source generator library that automatically creates async enumeration methods for cursor-based paginated APIs.</Description>
+    <PackageProjectUrl>https://github.com/rmja/Cursor</PackageProjectUrl>
+    <PackageLicenseExpression>MIT</PackageLicenseExpression>
+    <PackageTags>pagination;cursor;async</PackageTags>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/rmja/Cursor.git</RepositoryUrl>
+    <Version>0.0.1</Version>
+    <PackageReadmeFile>README.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="..\..\README.md" Pack="true" PackagePath="">
+      <Link>Properties\README.md</Link>
+    </None>
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference
+      Include="..\Cursor.SourceGenerators\Cursor.SourceGenerators.csproj"
+      ReferenceOutputAssembly="false"
+    />
+    <None
+      Include="..\Cursor.SourceGenerators\bin\$(Configuration)\netstandard2.0\Cursor.SourceGenerators.dll"
+      Pack="true"
+      PackagePath="analyzers/dotnet/cs"
+      Visible="false"
+    />
+  </ItemGroup>
+</Project>

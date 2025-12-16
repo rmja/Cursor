@@ -1,0 +1,7 @@
+<Solution>
+  <Project Path="src/Cursor.EntityFrameworkCore/Cursor.EntityFrameworkCore.csproj" Id="768a5a3e-e74c-4d77-9a45-542d2cdc90b4" />
+  <Project Path="src/Cursor.SourceGenerators/Cursor.SourceGenerators.csproj" />
+  <Project Path="src/Cursor/Cursor.csproj" />
+  <Project Path="src/Example/Example.csproj" Id="d5db2c68-2cb7-46c8-8450-651541b93bdd" />
+  <Project Path="test/Cursor.Tests/Cursor.Tests.csproj" />
+</Solution>
