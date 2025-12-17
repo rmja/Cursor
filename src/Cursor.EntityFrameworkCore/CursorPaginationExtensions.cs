@@ -199,14 +199,15 @@ public static class CursorPaginationExtensions
         query = query.Take(limit + 1);
 
         var items = await query.ToListAsync(cancellationToken);
+        var hasMore = items.Count > limit;
 
-        if (items.Count > limit)
+        if (hasMore)
         {
             items.RemoveAt(items.Count - 1);
         }
 
         string? nextCursor = null;
-        if (items.Count > 0)
+        if (hasMore && items.Count > 0)
         {
             var lastItem = items[^1];
             var lastKey = new[] { lastItem }.AsQueryable().Select(keySelector).Single();
@@ -259,19 +260,20 @@ public static class CursorPaginationExtensions
         query = query.Take(limit + 1);
 
         var items = await query.ToListAsync(cancellationToken);
+        var hasMore = items.Count > limit;
 
-        if (items.Count > limit)
+        if (hasMore)
         {
             items.RemoveAt(items.Count - 1);
         }
 
         string? nextCursor = null;
-        if (items.Count > 0)
+        if (hasMore && items.Count > 0)
         {
             var lastItem = items[^1];
             var lastKey = keySelector.Compile()(lastItem);
             var lastKeyValues = ExtractKeyValues(lastKey);
-            nextCursor = EncodeCompoundCursor(lastKeyValues!);
+            nextCursor = EncodeCompoundCursor(lastKeyValues);
         }
 
         return new CursorPage<T> { Items = items, NextCursor = nextCursor };
@@ -417,7 +419,7 @@ public static class CursorPaginationExtensions
         return JsonSerializer.Deserialize<TKey>(json)!;
     }
 
-    private static string EncodeCompoundCursor(List<object> keyValues)
+    private static string EncodeCompoundCursor(List<object?> keyValues)
     {
         var json = JsonSerializer.Serialize(keyValues);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
