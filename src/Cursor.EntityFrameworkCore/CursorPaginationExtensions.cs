@@ -106,7 +106,7 @@ public static class CursorPaginationExtensions
     /// // Using anonymous type
     /// var page = await dbContext.Products
     ///     .ToCursorPageAsync(x => new { x.Category, x.Id }, limit: 20);
-    /// 
+    ///
     /// // Using tuple
     /// var page = await dbContext.Products
     ///     .ToCursorPageAsync(x => (x.Category, x.Id), limit: 20);
@@ -199,15 +199,19 @@ public static class CursorPaginationExtensions
         query = query.Take(limit + 1);
 
         var items = await query.ToListAsync(cancellationToken);
-        var hasMore = items.Count > limit;
 
-        if (hasMore)
+        if (items.Count > limit)
         {
             items.RemoveAt(items.Count - 1);
         }
 
-        var nextCursor =
-            hasMore && items.Count > 0 ? EncodeCursor(keySelector.Compile()(items[^1])) : null;
+        string? nextCursor = null;
+        if (items.Count > 0)
+        {
+            var lastItem = items[^1];
+            var lastKey = new[] { lastItem }.AsQueryable().Select(keySelector).Single();
+            nextCursor = EncodeCursor(lastKey);
+        }
 
         return new CursorPage<T> { Items = items, NextCursor = nextCursor };
     }
@@ -255,17 +259,20 @@ public static class CursorPaginationExtensions
         query = query.Take(limit + 1);
 
         var items = await query.ToListAsync(cancellationToken);
-        var hasMore = items.Count > limit;
 
-        if (hasMore)
+        if (items.Count > limit)
         {
             items.RemoveAt(items.Count - 1);
         }
 
-        var nextCursor =
-            hasMore && items.Count > 0
-                ? EncodeCompoundCursor(keySelector.Compile()(items[^1]))
-                : null;
+        string? nextCursor = null;
+        if (items.Count > 0)
+        {
+            var lastItem = items[^1];
+            var lastKey = keySelector.Compile()(lastItem);
+            var lastKeyValues = ExtractKeyValues(lastKey);
+            nextCursor = EncodeCompoundCursor(lastKeyValues!);
+        }
 
         return new CursorPage<T> { Items = items, NextCursor = nextCursor };
     }
@@ -396,10 +403,10 @@ public static class CursorPaginationExtensions
         return values;
     }
 
-    private static string EncodeCursor<TKey>(TKey key)
+    private static string EncodeCursor<TKey>(TKey keyValue)
         where TKey : notnull
     {
-        var json = JsonSerializer.Serialize(key);
+        var json = JsonSerializer.Serialize(keyValue);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
 
@@ -410,11 +417,9 @@ public static class CursorPaginationExtensions
         return JsonSerializer.Deserialize<TKey>(json)!;
     }
 
-    private static string EncodeCompoundCursor(object key)
+    private static string EncodeCompoundCursor(List<object> keyValues)
     {
-        // Extract the values as a list and serialize as array
-        var values = ExtractKeyValues(key);
-        var json = JsonSerializer.Serialize(values);
+        var json = JsonSerializer.Serialize(keyValues);
         return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
     }
 
