@@ -14,11 +14,13 @@
     <RepositoryUrl>https://github.com/rmja/Cursor.git</RepositoryUrl>
     <Version>0.0.1</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
+    <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
   <ItemGroup>
     <None Include="..\..\README.md" Pack="true" PackagePath="">
       <Link>Properties\README.md</Link>
     </None>
+    <None Include="..\..\icon.png" Pack="true" PackagePath="\" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference
