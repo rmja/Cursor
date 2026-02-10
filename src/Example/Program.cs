@@ -12,6 +12,7 @@ var allPages = await api.EnumerateSomethingPagesAsync().ToListAsync();
 await api.EnumerateSomethingAsync().ToListAsync();
 await api.EnumerateSomethingElseAsync().ToListAsync();
 await api.EnumerateSomethingThirdAsync().ToListAsync();
+await api.EnumerateSomethingFourthAsync().ToListAsync();
 
 var builder = WebApplication.CreateBuilder(args);
 

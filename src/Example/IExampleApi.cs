@@ -38,4 +38,12 @@ public interface IExampleApi
         string? cursor = null,
         CancellationToken cancellationToken = default
     );
+
+    [Get("/something-fourth")]
+    [GenerateEnumerator(CursorParameterName = "offset")]
+    Task<CursorPage<string>> ListSomethingFourthAsync(
+        int offset = 0,
+        int? limit = null,
+        CancellationToken cancellationToken = default
+    );
 }

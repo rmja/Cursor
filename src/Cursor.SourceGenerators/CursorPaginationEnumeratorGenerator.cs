@@ -52,7 +52,8 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         // Get parameter names from the attribute
         var attributeData = context.Attributes.FirstOrDefault();
         var limitParamName = GetAttributeProperty(attributeData, "LimitParameterName") ?? "limit";
-        var cursorParamName = GetAttributeProperty(attributeData, "CursorParameterName") ?? "cursor";
+        var cursorParamName =
+            GetAttributeProperty(attributeData, "CursorParameterName") ?? "cursor";
 
         // Find limit, cursor, and cancellationToken parameters
         var comparer = SymbolEqualityComparer.Default;
@@ -67,6 +68,10 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         var containingType = methodSymbol.ContainingType;
         if (containingType.TypeKind != TypeKind.Interface)
             return null;
+
+        // Determine if this is offset-based pagination (cursor parameter is an integer type)
+        var isOffsetBased = IsIntegerType(cursorParam.Type);
+        var cursorType = cursorParam.Type.ToDisplayString();
 
         // Get all parameters except limit, cursor, and cancellationToken
         // Use SymbolEqualityComparer for proper symbol comparison
@@ -107,8 +112,25 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
             parameters: enumeratorParams,
             allParameters: methodSymbol.Parameters.ToImmutableArray(),
             limitParameterName: limitParamName,
-            cursorParameterName: cursorParamName
+            cursorParameterName: cursorParamName,
+            isOffsetBased: isOffsetBased,
+            cursorType: cursorType
         );
+    }
+
+    private static bool IsIntegerType(ITypeSymbol type)
+    {
+        // Check if the type is an integer type (for offset-based pagination)
+        var specialType = type.SpecialType;
+        return specialType
+            is SpecialType.System_Int32
+                or SpecialType.System_Int64
+                or SpecialType.System_Int16
+                or SpecialType.System_Byte
+                or SpecialType.System_UInt32
+                or SpecialType.System_UInt64
+                or SpecialType.System_UInt16
+                or SpecialType.System_SByte;
     }
 
     private static string? GetAttributeProperty(AttributeData? attributeData, string propertyName)
@@ -123,7 +145,11 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         return null;
     }
 
-    private static bool IsTaskOfICursorPage(ITypeSymbol returnType, out ITypeSymbol? itemType, out ITypeSymbol? pageType)
+    private static bool IsTaskOfICursorPage(
+        ITypeSymbol returnType,
+        out ITypeSymbol? itemType,
+        out ITypeSymbol? pageType
+    )
     {
         itemType = null;
         pageType = null;
@@ -136,20 +162,22 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
 
         // Check if the type implements ICursorPage<T>
         // First check if the type itself is ICursorPage<T>
-        if (innerType is INamedTypeSymbol { Name: "ICursorPage" } namedType &&
-            namedType.ContainingNamespace?.ToDisplayString() == "Cursor" &&
-            namedType.TypeArguments.Length == 1)
+        if (
+            innerType is INamedTypeSymbol { Name: "ICursorPage" } namedType
+            && namedType.ContainingNamespace?.ToDisplayString() == "Cursor"
+            && namedType.TypeArguments.Length == 1
+        )
         {
             itemType = namedType.TypeArguments[0];
             return true;
         }
 
         // Then check if it implements ICursorPage<T>
-        var cursorPageInterface = innerType.AllInterfaces
-            .FirstOrDefault(i => 
-                i.Name == "ICursorPage" && 
-                i.ContainingNamespace?.ToDisplayString() == "Cursor" &&
-                i.TypeArguments.Length == 1);
+        var cursorPageInterface = innerType.AllInterfaces.FirstOrDefault(i =>
+            i.Name == "ICursorPage"
+            && i.ContainingNamespace?.ToDisplayString() == "Cursor"
+            && i.TypeArguments.Length == 1
+        );
 
         if (cursorPageInterface == null)
             return false;
@@ -276,12 +304,31 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
 
         sb.AppendLine();
         sb.AppendLine("    ) =>");
-        sb.AppendLine($"        new CursorPaginationEnumerable<{method.ItemType}, {method.PageType}>(");
-        sb.AppendLine("            (cursor, cancellationToken) =>");
+
+        // Choose the appropriate enumerable type based on pagination type
+        if (method.IsOffsetBased)
+        {
+            sb.AppendLine(
+                $"        new OffsetPaginationEnumerable<{method.ItemType}, {method.PageType}>("
+            );
+            sb.AppendLine("            (offset, cancellationToken) =>");
+        }
+        else
+        {
+            sb.AppendLine(
+                $"        new CursorPaginationEnumerable<{method.ItemType}, {method.PageType}>("
+            );
+            sb.AppendLine("            (cursor, cancellationToken) =>");
+        }
+
         sb.Append($"                client.{method.OriginalMethodName}(");
 
         // Call original method with all parameters
-        var paramNames = BuildParameterCallList(method, "pageSize");
+        var paramNames = BuildParameterCallList(
+            method,
+            "pageSize",
+            method.IsOffsetBased ? "offset" : "cursor"
+        );
 
         sb.AppendLine();
         sb.Append("                    ");
@@ -348,12 +395,31 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
 
         sb.AppendLine();
         sb.AppendLine("    ) =>");
-        sb.AppendLine($"        new CursorPaginationPageEnumerable<{method.ItemType}, {method.PageType}>(");
-        sb.AppendLine("            (cursor, cancellationToken) =>");
+
+        // Choose the appropriate page enumerable type based on pagination type
+        if (method.IsOffsetBased)
+        {
+            sb.AppendLine(
+                $"        new OffsetPaginationPageEnumerable<{method.ItemType}, {method.PageType}>("
+            );
+            sb.AppendLine("            (offset, cancellationToken) =>");
+        }
+        else
+        {
+            sb.AppendLine(
+                $"        new CursorPaginationPageEnumerable<{method.ItemType}, {method.PageType}>("
+            );
+            sb.AppendLine("            (cursor, cancellationToken) =>");
+        }
+
         sb.Append($"                client.{method.OriginalMethodName}(");
 
         // Call original method with all parameters
-        var paramNames = BuildParameterCallList(method, "pageSize");
+        var paramNames = BuildParameterCallList(
+            method,
+            "pageSize",
+            method.IsOffsetBased ? "offset" : "cursor"
+        );
 
         sb.AppendLine();
         sb.Append("                    ");
@@ -365,7 +431,11 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         sb.AppendLine();
     }
 
-    private static List<string> BuildParameterCallList(MethodInfo method, string pageSizeParamName)
+    private static List<string> BuildParameterCallList(
+        MethodInfo method,
+        string pageSizeParamName,
+        string cursorParamName
+    )
     {
         var paramNames = new List<string>(method.AllParameters.Length);
 
@@ -377,7 +447,7 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
             }
             else if (param.Name == method.CursorParameterName)
             {
-                paramNames.Add("cursor");
+                paramNames.Add(cursorParamName);
             }
             else if (param.Name == "cancellationToken")
             {
@@ -444,6 +514,8 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         public ImmutableArray<IParameterSymbol> AllParameters { get; }
         public string LimitParameterName { get; }
         public string CursorParameterName { get; }
+        public bool IsOffsetBased { get; }
+        public string CursorType { get; }
 
         public MethodInfo(
             string interfaceName,
@@ -458,7 +530,9 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
             ImmutableArray<IParameterSymbol> parameters,
             ImmutableArray<IParameterSymbol> allParameters,
             string limitParameterName,
-            string cursorParameterName
+            string cursorParameterName,
+            bool isOffsetBased,
+            string cursorType
         )
         {
             InterfaceName = interfaceName;
@@ -474,6 +548,8 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
             AllParameters = allParameters;
             LimitParameterName = limitParameterName;
             CursorParameterName = cursorParameterName;
+            IsOffsetBased = isOffsetBased;
+            CursorType = cursorType;
         }
     }
 }

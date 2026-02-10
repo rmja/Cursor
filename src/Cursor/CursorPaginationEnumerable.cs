@@ -37,11 +37,3 @@ public class CursorPaginationEnumerable<T, TPage>(
         }
     }
 }
-
-/// <summary>
-/// Provides an async enumerable over cursor-paginated results using CursorPage.
-/// </summary>
-public class CursorPaginationEnumerable<T>(
-    Func<string?, CancellationToken, Task<CursorPage<T>>> fetchPage,
-    int? maxPages = null
-) : CursorPaginationEnumerable<T, CursorPage<T>>(fetchPage, maxPages);

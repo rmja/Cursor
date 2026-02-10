@@ -1,6 +1,6 @@
 # Cursor Pagination Library
 
-A C# source generator library that automatically creates async enumeration methods for cursor-based paginated APIs, making it effortless to iterate through paginated results.
+A C# source generator library that automatically creates async enumeration methods for cursor and offset-based paginated APIs, making it effortless to iterate through paginated results.
 
 ## Features
 
@@ -102,6 +102,16 @@ If your API uses different parameter names, you can customize them:
 Task<CursorPage<Item>> ListItemsAsync(
     int? pageSize,
     string? nextToken,
+    CancellationToken cancellationToken
+);
+
+[Get("/items")]
+[GenerateEnumerator(
+    CursorParameterName = "offset"
+)]
+Task<CursorPage<Item>> ListItemsAsync(
+    int? offset,
+    int? limit,
     CancellationToken cancellationToken
 );
 ```

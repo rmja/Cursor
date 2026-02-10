@@ -8,20 +8,20 @@ namespace Cursor;
 [CollectionBuilder(typeof(CursorPageBuilder), nameof(CursorPageBuilder.Create))]
 public record CursorPage<T> : ICursorPage<T>
 {
-    /// <summary>
-    /// Whether there are more items available.
-    /// </summary>
+    private bool? _hasMore;
+
+    /// <inheritdoc />
     public List<T> Items { get; set; } = [];
 
-    /// <summary>
-    /// The cursor for the next page, or null if there are no more pages.
-    /// </summary>
+    /// <inheritdoc />
     public string? NextCursor { get; set; }
 
-    /// <summary>
-    /// Whether there are more items available.
-    /// </summary>
-    public bool HasMore => NextCursor is not null;
+    /// <inheritdoc />
+    public bool HasMore
+    {
+        get => _hasMore ?? NextCursor is not null;
+        set => _hasMore = value;
+    }
 
     public CursorPage() { }
 
