@@ -46,4 +46,12 @@ public interface IExampleApi
         int? limit = null,
         CancellationToken cancellationToken = default
     );
+
+    [Get("/something-fifth")]
+    [GenerateEnumerator(CursorParameterName = "offset")]
+    Task<CursorPage<string>> ListSomethingFifthAsync(
+        long offset = 0,
+        int? limit = null,
+        CancellationToken cancellationToken = default
+    );
 }

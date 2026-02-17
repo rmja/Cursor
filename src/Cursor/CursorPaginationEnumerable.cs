@@ -5,6 +5,7 @@
 /// </summary>
 public class CursorPaginationEnumerable<T, TPage>(
     Func<string?, CancellationToken, Task<TPage>> fetchPage,
+    string? initialCursor = null,
     int? maxPages = null
 ) : IAsyncEnumerable<T>
     where TPage : ICursorPage<T>
@@ -13,7 +14,7 @@ public class CursorPaginationEnumerable<T, TPage>(
         CancellationToken cancellationToken = default
     )
     {
-        string? cursor = null;
+        string? cursor = initialCursor;
         var hasMore = true;
         var pageCount = 0;
 

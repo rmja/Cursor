@@ -302,6 +302,25 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         sb.AppendLine(",");
         sb.Append("        int? maxPages = null");
 
+        // Add initial cursor/offset parameter
+        sb.AppendLine(",");
+        if (method.IsOffsetBased)
+        {
+            sb.Append(
+                $"        {method.CursorType} initial{CapitalizeFirst(method.CursorParameterName)} = 0"
+            );
+        }
+        else
+        {
+            // Don't add '?' if the cursor type is already nullable
+            var initialCursorType = method.CursorType.EndsWith("?")
+                ? method.CursorType
+                : $"{method.CursorType}?";
+            sb.Append(
+                $"        {initialCursorType} initial{CapitalizeFirst(method.CursorParameterName)} = null"
+            );
+        }
+
         sb.AppendLine();
         sb.AppendLine("    ) =>");
 
@@ -309,7 +328,7 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         if (method.IsOffsetBased)
         {
             sb.AppendLine(
-                $"        new OffsetPaginationEnumerable<{method.ItemType}, {method.PageType}>("
+                $"        new OffsetPaginationEnumerable<{method.ItemType}, {method.PageType}, {method.CursorType}>("
             );
             sb.AppendLine("            (offset, cancellationToken) =>");
         }
@@ -334,8 +353,9 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         sb.Append("                    ");
         sb.Append(string.Join(",\r\n                    ", paramNames));
         sb.AppendLine();
-        sb.AppendLine("                )");
-        sb.AppendLine("        ,   maxPages");
+        sb.AppendLine("                ),");
+        sb.AppendLine($"            initial{CapitalizeFirst(method.CursorParameterName)},");
+        sb.AppendLine("            maxPages");
         sb.AppendLine("        );");
         sb.AppendLine();
     }
@@ -393,6 +413,25 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         sb.AppendLine(",");
         sb.Append("        int? maxPages = null");
 
+        // Add initial cursor/offset parameter
+        sb.AppendLine(",");
+        if (method.IsOffsetBased)
+        {
+            sb.Append(
+                $"        {method.CursorType} initial{CapitalizeFirst(method.CursorParameterName)} = 0"
+            );
+        }
+        else
+        {
+            // Don't add '?' if the cursor type is already nullable
+            var initialCursorType = method.CursorType.EndsWith("?")
+                ? method.CursorType
+                : $"{method.CursorType}?";
+            sb.Append(
+                $"        {initialCursorType} initial{CapitalizeFirst(method.CursorParameterName)} = null"
+            );
+        }
+
         sb.AppendLine();
         sb.AppendLine("    ) =>");
 
@@ -400,7 +439,7 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         if (method.IsOffsetBased)
         {
             sb.AppendLine(
-                $"        new OffsetPaginationPageEnumerable<{method.ItemType}, {method.PageType}>("
+                $"        new OffsetPaginationPageEnumerable<{method.ItemType}, {method.PageType}, {method.CursorType}>("
             );
             sb.AppendLine("            (offset, cancellationToken) =>");
         }
@@ -425,8 +464,9 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
         sb.Append("                    ");
         sb.Append(string.Join(",\r\n                    ", paramNames));
         sb.AppendLine();
-        sb.AppendLine("                )");
-        sb.AppendLine("        ,   maxPages");
+        sb.AppendLine("                ),");
+        sb.AppendLine($"            initial{CapitalizeFirst(method.CursorParameterName)},");
+        sb.AppendLine("            maxPages");
         sb.AppendLine("        );");
         sb.AppendLine();
     }
@@ -497,6 +537,14 @@ public class CursorPaginationEnumeratorGenerator : IIncrementalGenerator
     private static string EscapeXmlDoc(string text)
     {
         return text.Replace("&", "&amp;").Replace("<", "&lt;").Replace(">", "&gt;");
+    }
+
+    private static string CapitalizeFirst(string text)
+    {
+        if (string.IsNullOrEmpty(text))
+            return text;
+
+        return char.ToUpperInvariant(text[0]) + text.Substring(1);
     }
 
     private sealed record MethodInfo

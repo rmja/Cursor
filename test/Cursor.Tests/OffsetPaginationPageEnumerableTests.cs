@@ -21,7 +21,7 @@ public class OffsetPaginationPageEnumerableTests
             return Task.FromResult(pages[currentPage++]);
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(FetchPage);
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(FetchPage);
 
         // Act
         var fetchedPages = new List<CursorPage<int>>();
@@ -54,7 +54,7 @@ public class OffsetPaginationPageEnumerableTests
             return Task.FromResult(pages[currentPage++]);
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(
             FetchPage,
             maxPages: 2
         );
@@ -88,7 +88,7 @@ public class OffsetPaginationPageEnumerableTests
             return Task.FromResult(pages[currentPage++]);
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(FetchPage);
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(FetchPage);
 
         // Act
         var fetchedPages = new List<CursorPage<int>>();
@@ -122,7 +122,7 @@ public class OffsetPaginationPageEnumerableTests
             );
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(FetchPage);
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(FetchPage);
 
         // Act
         var fetchedPages = new List<CursorPage<int>>();
@@ -160,7 +160,7 @@ public class OffsetPaginationPageEnumerableTests
             }
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(FetchPage);
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(FetchPage);
 
         // Act
         var fetchedPages = new List<CursorPage<int>>();
@@ -192,7 +192,7 @@ public class OffsetPaginationPageEnumerableTests
             };
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(FetchPage);
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(FetchPage);
 
         // Act
         await foreach (var _ in enumerable) { }
@@ -225,7 +225,7 @@ public class OffsetPaginationPageEnumerableTests
             };
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(
             FetchPage,
             maxPages: 2
         );
@@ -256,7 +256,7 @@ public class OffsetPaginationPageEnumerableTests
             };
         }
 
-        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>>(
+        var enumerable = new OffsetPaginationPageEnumerable<int, CursorPage<int>, int>(
             FetchPage,
             maxPages: 2
         );

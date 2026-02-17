@@ -9,10 +9,12 @@ var singlePage = await api.ListSomethingAsync();
 var allItems = await api.EnumerateSomethingAsync().ToListAsync();
 var allPages = await api.EnumerateSomethingPagesAsync().ToListAsync();
 
-await api.EnumerateSomethingAsync().ToListAsync();
+await api.EnumerateSomethingAsync(initialCursor: "start_from_here").ToListAsync();
 await api.EnumerateSomethingElseAsync().ToListAsync();
 await api.EnumerateSomethingThirdAsync().ToListAsync();
 await api.EnumerateSomethingFourthAsync().ToListAsync();
+await api.EnumerateSomethingFifthAsync(initialOffset: 123).ToListAsync();
+await api.EnumerateSomethingFifthPagesAsync(initialOffset: 123).ToListAsync();
 
 var builder = WebApplication.CreateBuilder(args);
 

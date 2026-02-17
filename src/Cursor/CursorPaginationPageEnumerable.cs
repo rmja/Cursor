@@ -5,6 +5,7 @@ namespace Cursor;
 /// </summary>
 public class CursorPaginationPageEnumerable<T, TPage>(
     Func<string?, CancellationToken, Task<TPage>> fetchPage,
+    string? initialCursor = null,
     int? maxPages = null
 ) : IAsyncEnumerable<TPage>
     where TPage : ICursorPage<T>
@@ -13,8 +14,8 @@ public class CursorPaginationPageEnumerable<T, TPage>(
         CancellationToken cancellationToken = default
     )
     {
-        string? cursor = null;
-        bool hasMore = true;
+        string? cursor = initialCursor;
+        var hasMore = true;
         var pageCount = 0;
 
         while (hasMore && !cancellationToken.IsCancellationRequested)

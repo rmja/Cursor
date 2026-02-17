@@ -1,19 +1,24 @@
+using System.Globalization;
+using System.Numerics;
+
 namespace Cursor;
 
 /// <summary>
 /// Provides an async enumerable over offset-paginated pages.
 /// </summary>
-public class OffsetPaginationPageEnumerable<T, TPage>(
-    Func<int, CancellationToken, Task<TPage>> fetchPage,
+public class OffsetPaginationPageEnumerable<T, TPage, TOffset>(
+    Func<TOffset, CancellationToken, Task<TPage>> fetchPage,
+    TOffset initialOffset = default,
     int? maxPages = null
 ) : IAsyncEnumerable<TPage>
     where TPage : ICursorPage<T>
+    where TOffset : struct, IBinaryInteger<TOffset>
 {
     public async IAsyncEnumerator<TPage> GetAsyncEnumerator(
         CancellationToken cancellationToken = default
     )
     {
-        int offset = 0;
+        TOffset offset = initialOffset;
         var hasMore = true;
         var pageCount = 0;
 
@@ -30,13 +35,20 @@ public class OffsetPaginationPageEnumerable<T, TPage>(
             yield return page;
 
             // Parse NextCursor as offset, or calculate from items returned
-            if (page.NextCursor is not null && int.TryParse(page.NextCursor, out var nextOffset))
+            if (
+                page.NextCursor is not null
+                && TOffset.TryParse(
+                    page.NextCursor,
+                    CultureInfo.InvariantCulture,
+                    out var nextOffset
+                )
+            )
             {
                 offset = nextOffset;
             }
             else if (page.Items.Count > 0)
             {
-                offset += page.Items.Count;
+                offset += TOffset.CreateChecked(page.Items.Count);
             }
             else
             {
