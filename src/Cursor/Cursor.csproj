@@ -12,7 +12,7 @@
     <PackageTags>pagination;cursor;async</PackageTags>
     <RepositoryType>git</RepositoryType>
     <RepositoryUrl>https://github.com/rmja/Cursor.git</RepositoryUrl>
-    <Version>0.0.3</Version>
+    <Version>0.0.4</Version>
     <PackageReadmeFile>README.md</PackageReadmeFile>
     <PackageIcon>icon.png</PackageIcon>
   </PropertyGroup>
