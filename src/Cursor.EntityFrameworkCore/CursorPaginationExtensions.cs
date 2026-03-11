@@ -196,7 +196,7 @@ public static class CursorPaginationExtensions
         // Apply ordering
         query = descending ? query.OrderByDescending(keySelector) : query.OrderBy(keySelector);
 
-        query = query.Take(limit + 1);
+        query = query.Take(limit < int.MaxValue ? limit + 1 : int.MaxValue);
 
         var items = await query.ToListAsync(cancellationToken);
         var hasMore = items.Count > limit;
@@ -207,7 +207,7 @@ public static class CursorPaginationExtensions
         }
 
         string? nextCursor = null;
-        if (hasMore && items.Count > 0)
+        if ((hasMore || items.Count == int.MaxValue) && items.Count > 0)
         {
             var lastItem = items[^1];
             var lastKey = new[] { lastItem }.AsQueryable().Select(keySelector).Single();
@@ -257,7 +257,7 @@ public static class CursorPaginationExtensions
         // Apply ordering
         query = ApplyCompoundOrdering(query, keyProperties, parameter, descending);
 
-        query = query.Take(limit + 1);
+        query = query.Take(limit < int.MaxValue ? limit + 1 : int.MaxValue);
 
         var items = await query.ToListAsync(cancellationToken);
         var hasMore = items.Count > limit;
@@ -268,7 +268,7 @@ public static class CursorPaginationExtensions
         }
 
         string? nextCursor = null;
-        if (hasMore && items.Count > 0)
+        if ((hasMore || items.Count == int.MaxValue) && items.Count > 0)
         {
             var lastItem = items[^1];
             var lastKey = keySelector.Compile()(lastItem);
