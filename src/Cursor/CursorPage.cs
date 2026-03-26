@@ -1,4 +1,5 @@
 using System.Runtime.CompilerServices;
+using System.Text.Json.Serialization;
 
 namespace Cursor;
 
@@ -24,6 +25,7 @@ public record CursorPage<T> : ICursorPage<T>
     }
 
     /// <inheritdoc />
+    [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? TotalCount { get; set; }
 
     public CursorPage() { }
