@@ -19,6 +19,7 @@ public static class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.Id).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
     /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
@@ -36,6 +37,7 @@ public static class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor = null,
+        bool computeTotalCount = false,
         CancellationToken cancellationToken = default
     )
         where TKey : notnull, IComparable<TKey> =>
@@ -44,6 +46,7 @@ public static class CursorPaginationExtensions
             keySelector,
             limit,
             cursor,
+            computeTotalCount,
             descending: false,
             cancellationToken
         );
@@ -57,6 +60,7 @@ public static class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.CreatedAt).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
     /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
@@ -74,6 +78,7 @@ public static class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor = null,
+        bool computeTotalCount = false,
         CancellationToken cancellationToken = default
     )
         where TKey : notnull, IComparable<TKey> =>
@@ -82,6 +87,7 @@ public static class CursorPaginationExtensions
             keySelector,
             limit,
             cursor,
+            computeTotalCount,
             descending: true,
             cancellationToken
         );
@@ -94,6 +100,7 @@ public static class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Id } or x => (x.Category, x.Id)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
     /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
@@ -117,6 +124,7 @@ public static class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor = null,
+        bool computeTotalCount = false,
         CancellationToken cancellationToken = default
     ) =>
         ToCursorPageCompoundAsync(
@@ -124,6 +132,7 @@ public static class CursorPaginationExtensions
             keySelector,
             limit,
             cursor,
+            computeTotalCount,
             descending: false,
             cancellationToken
         );
@@ -136,6 +145,7 @@ public static class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Priority } or x => (x.Category, x.Priority)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
     /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
@@ -154,6 +164,7 @@ public static class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor = null,
+        bool computeTotalCount = false,
         CancellationToken cancellationToken = default
     ) =>
         ToCursorPageCompoundAsync(
@@ -161,6 +172,7 @@ public static class CursorPaginationExtensions
             keySelector,
             limit,
             cursor,
+            computeTotalCount,
             descending: true,
             cancellationToken
         );
@@ -170,11 +182,14 @@ public static class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor,
+        bool computeTotalCount,
         bool descending,
         CancellationToken cancellationToken
     )
         where TKey : notnull, IComparable<TKey>
     {
+        long? totalCount = computeTotalCount ? await query.LongCountAsync(cancellationToken) : null;
+
         var parameter = keySelector.Parameters[0];
         var keySelectorBody = keySelector.Body;
 
@@ -214,7 +229,12 @@ public static class CursorPaginationExtensions
             nextCursor = EncodeCursor(lastKey);
         }
 
-        return new CursorPage<T> { Items = items, NextCursor = nextCursor };
+        return new CursorPage<T>
+        {
+            Items = items,
+            NextCursor = nextCursor,
+            TotalCount = totalCount,
+        };
     }
 
     private static async Task<CursorPage<T>> ToCursorPageCompoundAsync<T>(
@@ -222,10 +242,13 @@ public static class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor,
+        bool computeTotalCount,
         bool descending,
         CancellationToken cancellationToken
     )
     {
+        long? totalCount = computeTotalCount ? await query.LongCountAsync(cancellationToken) : null;
+
         var parameter = keySelector.Parameters[0];
 
         // Unwrap Convert expression if present (happens with anonymous types)
@@ -276,7 +299,12 @@ public static class CursorPaginationExtensions
             nextCursor = EncodeCompoundCursor(lastKeyValues);
         }
 
-        return new CursorPage<T> { Items = items, NextCursor = nextCursor };
+        return new CursorPage<T>
+        {
+            Items = items,
+            NextCursor = nextCursor,
+            TotalCount = totalCount,
+        };
     }
 
     private static bool IsCompoundKey(Expression expression, out List<Expression>? keyProperties)

@@ -23,6 +23,9 @@ public record CursorPage<T> : ICursorPage<T>
         set => _hasMore = value;
     }
 
+    /// <inheritdoc />
+    public long? TotalCount { get; set; }
+
     public CursorPage() { }
 
     public CursorPage(int capacity)

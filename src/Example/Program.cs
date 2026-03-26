@@ -28,10 +28,17 @@ app.MapGet(
         MyDbContext db,
         int limit = 100,
         string? cursor = null,
+        bool computeTotalCount = false,
         CancellationToken cancellationToken = default
     ) =>
     {
-        return await db.MyEntities.ToCursorPageAsync(x => x.Id, limit, cursor, cancellationToken);
+        return await db.MyEntities.ToCursorPageAsync(
+            x => x.Id,
+            limit,
+            cursor,
+            computeTotalCount,
+            cancellationToken
+        );
     }
 );
 

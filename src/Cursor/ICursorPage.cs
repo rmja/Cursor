@@ -17,4 +17,9 @@ public interface ICursorPage<T>
     /// Whether there are more items available.
     /// </summary>
     bool HasMore => NextCursor is not null;
+
+    /// <summary>
+    /// Gets the total number of items available in the collection, if known.
+    /// </summary>
+    long? TotalCount => null;
 }
