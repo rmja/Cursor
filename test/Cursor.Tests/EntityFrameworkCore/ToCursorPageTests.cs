@@ -9,14 +9,14 @@ public class ToCursorPageTests : IAsyncLifetime
     private SqliteConnection _connection = null!;
     private TestDbContext _db = null!;
 
+    public static CancellationToken CT => TestContext.Current.CancellationToken;
+
     public async ValueTask InitializeAsync()
     {
         _connection = new SqliteConnection("DataSource=:memory:");
         await _connection.OpenAsync();
 
-        var options = new DbContextOptionsBuilder<TestDbContext>()
-            .UseSqlite(_connection)
-            .Options;
+        var options = new DbContextOptionsBuilder<TestDbContext>().UseSqlite(_connection).Options;
 
         _db = new TestDbContext(options);
         await _db.Database.EnsureCreatedAsync();
@@ -38,9 +38,9 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3);
+        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -57,10 +57,15 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
         var first = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3);
-        var second = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cursor: first.NextCursor);
+        var second = await _db.Items.ToCursorPageAsync(
+            x => x.Id,
+            limit: 3,
+            cursor: first.NextCursor,
+            cancellationToken: CT
+        );
 
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -77,9 +82,13 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(x => x.Id, limit: 3);
+        var page = await _db.Items.ToCursorPageDescendingAsync(
+            x => x.Id,
+            limit: 3,
+            cancellationToken: CT
+        );
 
         Assert.Equal([5, 4, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -96,10 +105,19 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageDescendingAsync(x => x.Id, limit: 3);
-        var second = await _db.Items.ToCursorPageDescendingAsync(x => x.Id, limit: 3, cursor: first.NextCursor);
+        var first = await _db.Items.ToCursorPageDescendingAsync(
+            x => x.Id,
+            limit: 3,
+            cancellationToken: CT
+        );
+        var second = await _db.Items.ToCursorPageDescendingAsync(
+            x => x.Id,
+            limit: 3,
+            cursor: first.NextCursor,
+            cancellationToken: CT
+        );
 
         Assert.Equal([2, 1], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -109,7 +127,7 @@ public class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Ascending_EmptyResult()
     {
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10);
+        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10, cancellationToken: CT);
 
         Assert.Empty(page.Items);
         Assert.Null(page.NextCursor);
@@ -124,9 +142,9 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 2, Name = "B" },
             new TestEntity { Id = 3, Name = "C" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3);
+        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.Null(page.NextCursor);
@@ -137,15 +155,44 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task CompoundKey_Ascending_FirstPage()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "B", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 2 },
-            new TestEntity { Id = 4, Name = "D", CategoryId = 2 },
-            new TestEntity { Id = 5, Name = "E", CategoryId = 3 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 3,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => new { x.CategoryId, x.Id }, limit: 3);
+        var page = await _db.Items.ToCursorPageAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cancellationToken: CT
+        );
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -155,16 +202,50 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task CompoundKey_Ascending_SecondPage()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "B", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 2 },
-            new TestEntity { Id = 4, Name = "D", CategoryId = 2 },
-            new TestEntity { Id = 5, Name = "E", CategoryId = 3 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 3,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageAsync(x => new { x.CategoryId, x.Id }, limit: 3);
-        var second = await _db.Items.ToCursorPageAsync(x => new { x.CategoryId, x.Id }, limit: 3, cursor: first.NextCursor);
+        var first = await _db.Items.ToCursorPageAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cancellationToken: CT
+        );
+        var second = await _db.Items.ToCursorPageAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cursor: first.NextCursor,
+            cancellationToken: CT
+        );
 
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -174,15 +255,44 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task CompoundKey_Descending_FirstPage()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "B", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 2 },
-            new TestEntity { Id = 4, Name = "D", CategoryId = 2 },
-            new TestEntity { Id = 5, Name = "E", CategoryId = 3 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 3,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(x => new { x.CategoryId, x.Id }, limit: 3);
+        var page = await _db.Items.ToCursorPageDescendingAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cancellationToken: CT
+        );
 
         Assert.Equal([5, 4, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -192,16 +302,50 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task CompoundKey_Descending_SecondPage()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "B", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 2 },
-            new TestEntity { Id = 4, Name = "D", CategoryId = 2 },
-            new TestEntity { Id = 5, Name = "E", CategoryId = 3 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 3,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageDescendingAsync(x => new { x.CategoryId, x.Id }, limit: 3);
-        var second = await _db.Items.ToCursorPageDescendingAsync(x => new { x.CategoryId, x.Id }, limit: 3, cursor: first.NextCursor);
+        var first = await _db.Items.ToCursorPageDescendingAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cancellationToken: CT
+        );
+        var second = await _db.Items.ToCursorPageDescendingAsync(
+            x => new { x.CategoryId, x.Id },
+            limit: 3,
+            cursor: first.NextCursor,
+            cancellationToken: CT
+        );
 
         Assert.Equal([2, 1], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -217,9 +361,14 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, computeTotalCount: true);
+        var page = await _db.Items.ToCursorPageAsync(
+            x => x.Id,
+            limit: 3,
+            computeTotalCount: true,
+            cancellationToken: CT
+        );
 
         Assert.Equal(5, page.TotalCount);
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
@@ -232,9 +381,9 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 1, Name = "A" },
             new TestEntity { Id = 2, Name = "B" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10);
+        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10, cancellationToken: CT);
 
         Assert.Null(page.TotalCount);
     }
@@ -247,9 +396,14 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 2, Name = "B" },
             new TestEntity { Id = 3, Name = "C" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(x => x.Id, limit: 2, computeTotalCount: true);
+        var page = await _db.Items.ToCursorPageDescendingAsync(
+            x => x.Id,
+            limit: 2,
+            computeTotalCount: true,
+            cancellationToken: CT
+        );
 
         Assert.Equal(3, page.TotalCount);
         Assert.Equal([3, 2], page.Items.Select(x => x.Id));
@@ -259,14 +413,33 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task ComputeTotalCount_CompoundKey_ReturnsCount()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "B", CategoryId = 1 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 2 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
         var page = await _db.Items.ToCursorPageAsync(
-            x => new { x.CategoryId, x.Id }, limit: 2, computeTotalCount: true);
+            x => new { x.CategoryId, x.Id },
+            limit: 2,
+            computeTotalCount: true,
+            cancellationToken: CT
+        );
 
         Assert.Equal(3, page.TotalCount);
     }
@@ -275,17 +448,42 @@ public class ToCursorPageTests : IAsyncLifetime
     public async Task ComputeTotalCount_WithPreFilter_CountsFilteredSet()
     {
         _db.Items.AddRange(
-            new TestEntity { Id = 1, Name = "A", CategoryId = 1 },
-            new TestEntity { Id = 2, Name = "B", CategoryId = 2 },
-            new TestEntity { Id = 3, Name = "C", CategoryId = 1 },
-            new TestEntity { Id = 4, Name = "D", CategoryId = 2 },
-            new TestEntity { Id = 5, Name = "E", CategoryId = 1 }
+            new TestEntity
+            {
+                Id = 1,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "B",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 1,
+            }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items
-            .Where(x => x.CategoryId == 1)
-            .ToCursorPageAsync(x => x.Id, limit: 2, computeTotalCount: true);
+        var page = await _db
+            .Items.Where(x => x.CategoryId == 1)
+            .ToCursorPageAsync(x => x.Id, limit: 2, computeTotalCount: true, cancellationToken: CT);
 
         Assert.Equal(3, page.TotalCount);
         Assert.Equal([1, 3], page.Items.Select(x => x.Id));
@@ -301,10 +499,21 @@ public class ToCursorPageTests : IAsyncLifetime
             new TestEntity { Id = 4, Name = "D" },
             new TestEntity { Id = 5, Name = "E" }
         );
-        await _db.SaveChangesAsync();
+        await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, computeTotalCount: true);
-        var second = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cursor: first.NextCursor, computeTotalCount: true);
+        var first = await _db.Items.ToCursorPageAsync(
+            x => x.Id,
+            limit: 3,
+            computeTotalCount: true,
+            cancellationToken: CT
+        );
+        var second = await _db.Items.ToCursorPageAsync(
+            x => x.Id,
+            limit: 3,
+            cursor: first.NextCursor,
+            computeTotalCount: true,
+            cancellationToken: CT
+        );
 
         Assert.Equal(5, first.TotalCount);
         Assert.Equal(5, second.TotalCount);
