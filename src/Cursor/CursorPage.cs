@@ -24,7 +24,9 @@ public record CursorPage<T> : ICursorPage<T>
         set => _hasMore = value;
     }
 
-    /// <inheritdoc />
+    /// <summary>
+    /// Gets the total number of items available in the collection, if known.
+    /// </summary>
     [JsonIgnore(Condition = JsonIgnoreCondition.WhenWritingNull)]
     public long? TotalCount { get; set; }
 
