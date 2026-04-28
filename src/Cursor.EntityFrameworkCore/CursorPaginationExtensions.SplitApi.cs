@@ -146,7 +146,6 @@ public static partial class CursorPaginationExtensions
     /// </summary>
     /// <typeparam name="T">The type of items in the result set (may be a projection of the original entity type).</typeparam>
     /// <param name="query">The query previously prepared with a CursorPage method, optionally followed by additional operators such as <c>.Select()</c>.</param>
-    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the query was not prepared with a CursorPage method.</exception>
@@ -160,12 +159,9 @@ public static partial class CursorPaginationExtensions
     /// </example>
     public static async Task<CursorPage<T>> ToCursorPageAsync<T>(
         this IQueryable<T> query,
-        CursorOptions? options = null,
         CancellationToken cancellationToken = default
     )
     {
-        options ??= CursorOptions.Default;
-
         var info =
             FindCursorPageInfo(query.Expression)
             ?? throw new InvalidOperationException(
@@ -173,7 +169,7 @@ public static partial class CursorPaginationExtensions
             );
 
         long? totalCount = null;
-        if (options.ComputeTotalCount)
+        if (info.Options.ComputeTotalCount)
         {
             totalCount = await CountOriginalQueryAsync(
                 query.Provider,
@@ -260,6 +256,7 @@ public static partial class CursorPaginationExtensions
             new CursorPageInfo
             {
                 Limit = limit,
+                Options = options,
                 OriginalQueryExpression = originalExpression,
                 SourceType = typeof(T),
                 OrderedQueryExpression = orderedExpression,
@@ -336,6 +333,7 @@ public static partial class CursorPaginationExtensions
             new CursorPageInfo
             {
                 Limit = limit,
+                Options = options,
                 OriginalQueryExpression = originalExpression,
                 SourceType = typeof(T),
                 OrderedQueryExpression = orderedExpression,
@@ -441,6 +439,7 @@ public static partial class CursorPaginationExtensions
     private sealed class CursorPageInfo
     {
         public required int Limit { get; init; }
+        public required CursorOptions Options { get; init; }
         public required Expression OriginalQueryExpression { get; init; }
         public required Type SourceType { get; init; }
         public required Expression OrderedQueryExpression { get; init; }

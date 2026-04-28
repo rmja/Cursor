@@ -36,7 +36,7 @@ public static partial class CursorPaginationExtensions
         CancellationToken cancellationToken = default
     )
         where TKey : notnull, IComparable<TKey> =>
-        query.CursorPage(keySelector, limit, cursor).ToCursorPageAsync(options, cancellationToken);
+        query.CursorPage(keySelector, limit, cursor, options).ToCursorPageAsync(cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a single key in descending order.
@@ -70,8 +70,8 @@ public static partial class CursorPaginationExtensions
     )
         where TKey : notnull, IComparable<TKey> =>
         query
-            .CursorPageDescending(keySelector, limit, cursor)
-            .ToCursorPageAsync(options, cancellationToken);
+            .CursorPageDescending(keySelector, limit, cursor, options)
+            .ToCursorPageAsync(cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a compound key (multiple properties) in ascending order.
@@ -107,7 +107,7 @@ public static partial class CursorPaginationExtensions
         string? cursor = null,
         CursorOptions? options = null,
         CancellationToken cancellationToken = default
-    ) => query.CursorPage(keySelector, limit, cursor).ToCursorPageAsync(options, cancellationToken);
+    ) => query.CursorPage(keySelector, limit, cursor, options).ToCursorPageAsync(cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a compound key (multiple properties) in descending order.
@@ -140,6 +140,6 @@ public static partial class CursorPaginationExtensions
         CancellationToken cancellationToken = default
     ) =>
         query
-            .CursorPageDescending(keySelector, limit, cursor)
-            .ToCursorPageAsync(options, cancellationToken);
+            .CursorPageDescending(keySelector, limit, cursor, options)
+            .ToCursorPageAsync(cancellationToken);
 }
