@@ -1,4 +1,5 @@
-﻿using Microsoft.Data.Sqlite;
+﻿using Cursor.EntityFrameworkCore;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
 
@@ -658,7 +659,7 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         var page = await _db.Items.ToCursorPageAsync(
             x => x.Id,
             limit: 3,
-            computeTotalCount: true,
+            options: new() { ComputeTotalCount = true },
             cancellationToken: CT
         );
 
@@ -693,7 +694,7 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         var page = await _db.Items.ToCursorPageDescendingAsync(
             x => x.Id,
             limit: 2,
-            computeTotalCount: true,
+            options: new() { ComputeTotalCount = true },
             cancellationToken: CT
         );
 
@@ -729,7 +730,7 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         var page = await _db.Items.ToCursorPageAsync(
             x => new { x.CategoryId, x.Id },
             limit: 2,
-            computeTotalCount: true,
+            options: new() { ComputeTotalCount = true },
             cancellationToken: CT
         );
 
@@ -775,7 +776,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
 
         var page = await _db
             .Items.Where(x => x.CategoryId == 1)
-            .ToCursorPageAsync(x => x.Id, limit: 2, computeTotalCount: true, cancellationToken: CT);
+            .ToCursorPageAsync(
+                x => x.Id,
+                limit: 2,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
 
         Assert.Equal(3, page.TotalCount);
         Assert.Equal([1, 3], page.Items.Select(x => x.Id));
@@ -796,14 +802,14 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         var first = await _db.Items.ToCursorPageAsync(
             x => x.Id,
             limit: 3,
-            computeTotalCount: true,
+            options: new() { ComputeTotalCount = true },
             cancellationToken: CT
         );
         var second = await _db.Items.ToCursorPageAsync(
             x => x.Id,
             limit: 3,
             cursor: first.NextCursor,
-            computeTotalCount: true,
+            options: new() { ComputeTotalCount = true },
             cancellationToken: CT
         );
 

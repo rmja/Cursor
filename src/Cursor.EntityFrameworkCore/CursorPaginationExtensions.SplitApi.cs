@@ -22,6 +22,7 @@ public static partial class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.Id).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <returns>An <see cref="IQueryable{T}"/> with cursor filtering, ordering, and take applied. Call <see cref="ToCursorPageAsync{T}(IQueryable{T}, bool, CancellationToken)"/> to materialize the results.</returns>
     /// <remarks>
     /// This method applies Where (if cursor is provided), OrderBy, and Take to the query.
@@ -39,10 +40,11 @@ public static partial class CursorPaginationExtensions
         this IQueryable<T> query,
         Expression<Func<T, TKey>> keySelector,
         int limit,
-        string? cursor = null
+        string? cursor = null,
+        CursorOptions? options = null
     )
         where TKey : notnull, IComparable<TKey> =>
-        CursorPageCore(query, keySelector, limit, cursor, descending: false);
+        CursorPageCore(query, keySelector, limit, cursor, options, descending: false);
 
     /// <summary>
     /// Applies cursor-based pagination to the query using a single key in descending order.
@@ -53,6 +55,7 @@ public static partial class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.CreatedAt).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <returns>An <see cref="IQueryable{T}"/> with cursor filtering, descending ordering, and take applied. Call <see cref="ToCursorPageAsync{T}(IQueryable{T}, bool, CancellationToken)"/> to materialize the results.</returns>
     /// <remarks>
     /// This method applies Where (if cursor is provided), OrderByDescending, and Take to the query.
@@ -70,10 +73,11 @@ public static partial class CursorPaginationExtensions
         this IQueryable<T> query,
         Expression<Func<T, TKey>> keySelector,
         int limit,
-        string? cursor = null
+        string? cursor = null,
+        CursorOptions? options = null
     )
         where TKey : notnull, IComparable<TKey> =>
-        CursorPageCore(query, keySelector, limit, cursor, descending: true);
+        CursorPageCore(query, keySelector, limit, cursor, options, descending: true);
 
     /// <summary>
     /// Applies cursor-based pagination to the query using a compound key (multiple properties) in ascending order.
@@ -83,6 +87,7 @@ public static partial class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Id } or x => (x.Category, x.Id)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <returns>An <see cref="IQueryable{T}"/> with cursor filtering, compound ordering, and take applied. Call <see cref="ToCursorPageAsync{T}(IQueryable{T}, bool, CancellationToken)"/> to materialize the results.</returns>
     /// <remarks>
     /// This method applies Where (if cursor is provided), compound OrderBy/ThenBy, and Take to the query.
@@ -101,8 +106,9 @@ public static partial class CursorPaginationExtensions
         this IQueryable<T> query,
         Expression<Func<T, object>> keySelector,
         int limit,
-        string? cursor = null
-    ) => CursorPageCompoundCore(query, keySelector, limit, cursor, descending: false);
+        string? cursor = null,
+        CursorOptions? options = null
+    ) => CursorPageCompoundCore(query, keySelector, limit, cursor, options, descending: false);
 
     /// <summary>
     /// Applies cursor-based pagination to the query using a compound key (multiple properties) in descending order.
@@ -112,6 +118,7 @@ public static partial class CursorPaginationExtensions
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Priority } or x => (x.Category, x.Priority)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <returns>An <see cref="IQueryable{T}"/> with cursor filtering, compound descending ordering, and take applied. Call <see cref="ToCursorPageAsync{T}(IQueryable{T}, bool, CancellationToken)"/> to materialize the results.</returns>
     /// <remarks>
     /// This method applies Where (if cursor is provided), compound OrderByDescending/ThenByDescending, and Take to the query.
@@ -129,8 +136,9 @@ public static partial class CursorPaginationExtensions
         this IQueryable<T> query,
         Expression<Func<T, object>> keySelector,
         int limit,
-        string? cursor = null
-    ) => CursorPageCompoundCore(query, keySelector, limit, cursor, descending: true);
+        string? cursor = null,
+        CursorOptions? options = null
+    ) => CursorPageCompoundCore(query, keySelector, limit, cursor, options, descending: true);
 
     /// <summary>
     /// Materializes a cursor-paginated query that was previously prepared with
@@ -138,8 +146,8 @@ public static partial class CursorPaginationExtensions
     /// </summary>
     /// <typeparam name="T">The type of items in the result set (may be a projection of the original entity type).</typeparam>
     /// <param name="query">The query previously prepared with a CursorPage method, optionally followed by additional operators such as <c>.Select()</c>.</param>
-    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
-    /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination.</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <exception cref="InvalidOperationException">Thrown when the query was not prepared with a CursorPage method.</exception>
     /// <example>
@@ -152,10 +160,12 @@ public static partial class CursorPaginationExtensions
     /// </example>
     public static async Task<CursorPage<T>> ToCursorPageAsync<T>(
         this IQueryable<T> query,
-        bool computeTotalCount = false,
+        CursorOptions? options = null,
         CancellationToken cancellationToken = default
     )
     {
+        options ??= CursorOptions.Default;
+
         var info =
             FindCursorPageInfo(query.Expression)
             ?? throw new InvalidOperationException(
@@ -163,7 +173,7 @@ public static partial class CursorPaginationExtensions
             );
 
         long? totalCount = null;
-        if (computeTotalCount)
+        if (options.ComputeTotalCount)
         {
             totalCount = await CountOriginalQueryAsync(
                 query.Provider,
@@ -215,17 +225,20 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor,
+        CursorOptions? options,
         bool descending
     )
         where TKey : notnull, IComparable<TKey>
     {
+        options ??= CursorOptions.Default;
+
         var originalExpression = query.Expression;
         var parameter = keySelector.Parameters[0];
         var keySelectorBody = keySelector.Body;
 
         if (cursor is not null)
         {
-            var lastKey = CursorSerializer.DecodeCursor<TKey>(cursor);
+            var lastKey = options.CursorSerializer.DecodeCursor<TKey>(cursor);
             var lastKeyConstant = Expression.Constant(lastKey, typeof(TKey));
 
             var comparison = descending
@@ -251,7 +264,7 @@ public static partial class CursorPaginationExtensions
                 SourceType = typeof(T),
                 OrderedQueryExpression = orderedExpression,
                 EncodeCursorFromSourceEntity = item =>
-                    CursorSerializer.EncodeCursor(compiledKeySelector((T)item)),
+                    options.CursorSerializer.EncodeCursor(compiledKeySelector((T)item)),
             }
         );
 
@@ -263,9 +276,12 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor,
+        CursorOptions? options,
         bool descending
     )
     {
+        options ??= CursorOptions.Default;
+
         var originalExpression = query.Expression;
         var parameter = keySelector.Parameters[0];
 
@@ -290,7 +306,11 @@ public static partial class CursorPaginationExtensions
 
         if (cursor is not null)
         {
-            var lastKeyValues = CursorSerializer.DecodeCompoundCursor(cursor, keyProperties);
+            var keyPropertyTypes = keyProperties.Select(k => k.Type).ToList();
+            var lastKeyValues = options.CursorSerializer.DecodeCompoundCursor(
+                cursor,
+                keyPropertyTypes
+            );
             var comparison = CompoundKeyHelpers.BuildCompoundComparison(
                 keyProperties,
                 lastKeyValues,
@@ -323,7 +343,7 @@ public static partial class CursorPaginationExtensions
                 {
                     var key = compiledKeySelector((T)item);
                     var keyValues = CompoundKeyHelpers.ExtractKeyValues(key);
-                    return CursorSerializer.EncodeCompoundCursor(keyValues);
+                    return options.CursorSerializer.EncodeCompoundCursor(keyValues);
                 },
             }
         );

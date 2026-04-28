@@ -36,7 +36,7 @@ app.MapGet(
             x => x.Id,
             limit,
             cursor,
-            computeTotalCount,
+            new() { ComputeTotalCount = computeTotalCount },
             cancellationToken
         );
     }

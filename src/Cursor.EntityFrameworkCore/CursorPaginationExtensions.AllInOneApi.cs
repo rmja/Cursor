@@ -1,4 +1,5 @@
 ﻿using System.Linq.Expressions;
+using Cursor.EntityFrameworkCore;
 
 namespace Cursor;
 
@@ -12,9 +13,9 @@ public static partial class CursorPaginationExtensions
     /// <param name="query">The IQueryable to paginate.</param>
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.Id).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
-    /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
-    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
-    /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
+    /// <param name="cursor">The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination..</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
     /// This method applies ascending ordering based on the key selector. For descending order, use <see cref="ToCursorPageDescendingAsync{T, TKey}"/>.
@@ -31,13 +32,11 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor = null,
-        bool computeTotalCount = false,
+        CursorOptions? options = null,
         CancellationToken cancellationToken = default
     )
         where TKey : notnull, IComparable<TKey> =>
-        query
-            .CursorPage(keySelector, limit, cursor)
-            .ToCursorPageAsync(computeTotalCount, cancellationToken);
+        query.CursorPage(keySelector, limit, cursor).ToCursorPageAsync(options, cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a single key in descending order.
@@ -47,9 +46,9 @@ public static partial class CursorPaginationExtensions
     /// <param name="query">The IQueryable to paginate.</param>
     /// <param name="keySelector">An expression that selects the key property to use for pagination (e.g., x => x.CreatedAt).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
-    /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
-    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
-    /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
+    /// <param name="cursor">The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination..</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
     /// This method applies descending ordering based on the key selector. For ascending order, use <see cref="ToCursorPageAsync{T, TKey}"/>.
@@ -66,13 +65,13 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, TKey>> keySelector,
         int limit,
         string? cursor = null,
-        bool computeTotalCount = false,
+        CursorOptions? options = null,
         CancellationToken cancellationToken = default
     )
         where TKey : notnull, IComparable<TKey> =>
         query
             .CursorPageDescending(keySelector, limit, cursor)
-            .ToCursorPageAsync(computeTotalCount, cancellationToken);
+            .ToCursorPageAsync(options, cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a compound key (multiple properties) in ascending order.
@@ -81,9 +80,9 @@ public static partial class CursorPaginationExtensions
     /// <param name="query">The IQueryable to paginate.</param>
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Id } or x => (x.Category, x.Id)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
-    /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
-    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
-    /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
+    /// <param name="cursor">The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination..</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
     /// Use this method when you need to order by multiple properties to ensure stable pagination.
@@ -106,12 +105,9 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor = null,
-        bool computeTotalCount = false,
+        CursorOptions? options = null,
         CancellationToken cancellationToken = default
-    ) =>
-        query
-            .CursorPage(keySelector, limit, cursor)
-            .ToCursorPageAsync(computeTotalCount, cancellationToken);
+    ) => query.CursorPage(keySelector, limit, cursor).ToCursorPageAsync(options, cancellationToken);
 
     /// <summary>
     /// Converts an IQueryable to a cursor-paginated result set ordered by a compound key (multiple properties) in descending order.
@@ -120,9 +116,9 @@ public static partial class CursorPaginationExtensions
     /// <param name="query">The IQueryable to paginate.</param>
     /// <param name="keySelector">An expression that selects multiple key properties using an anonymous type or tuple (e.g., x => new { x.Category, x.Priority } or x => (x.Category, x.Priority)).</param>
     /// <param name="limit">The maximum number of items to return per page.</param>
-    /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
-    /// <param name="computeTotalCount">Optional. Whether to compute the total count of items across all pages. This can be expensive for large datasets.</param>
-    /// <param name="cancellationToken">Optional. A cancellation token to cancel the operation.</param>
+    /// <param name="cursor">The cursor from a previous page to continue pagination from.</param>
+    /// <param name="options">Options to control the behavior of the cursor pagination..</param>
+    /// <param name="cancellationToken">The cancellation token to cancel the operation.</param>
     /// <returns>A task that represents the asynchronous operation, containing a <see cref="CursorPage{T}"/> with the results.</returns>
     /// <remarks>
     /// Use this method when you need to order by multiple properties in descending order to ensure stable pagination.
@@ -140,10 +136,10 @@ public static partial class CursorPaginationExtensions
         Expression<Func<T, object>> keySelector,
         int limit,
         string? cursor = null,
-        bool computeTotalCount = false,
+        CursorOptions? options = null,
         CancellationToken cancellationToken = default
     ) =>
         query
             .CursorPageDescending(keySelector, limit, cursor)
-            .ToCursorPageAsync(computeTotalCount, cancellationToken);
+            .ToCursorPageAsync(options, cancellationToken);
 }
