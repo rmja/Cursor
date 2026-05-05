@@ -1,4 +1,4 @@
-﻿using Cursor.EntityFrameworkCore;
+using Cursor.EntityFrameworkCore;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using Xunit;
@@ -41,7 +41,7 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cancellationToken: CT);
+        var page = await _db.Items.OrderBy(x => x.Id).ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -60,13 +60,10 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cancellationToken: CT);
-        var second = await _db.Items.ToCursorPageAsync(
-            x => x.Id,
-            limit: 3,
-            cursor: first.NextCursor,
-            cancellationToken: CT
-        );
+        var first = await _db.Items.OrderBy(x => x.Id).ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
 
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -85,11 +82,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(
-            x => x.Id,
-            limit: 3,
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([5, 4, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -108,17 +103,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageDescendingAsync(
-            x => x.Id,
-            limit: 3,
-            cancellationToken: CT
-        );
-        var second = await _db.Items.ToCursorPageDescendingAsync(
-            x => x.Id,
-            limit: 3,
-            cursor: first.NextCursor,
-            cancellationToken: CT
-        );
+        var first = await _db
+            .Items.OrderByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
 
         Assert.Equal([2, 1], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -128,7 +118,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Ascending_EmptyResult()
     {
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10, cancellationToken: CT);
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 10, cancellationToken: CT);
 
         Assert.Empty(page.Items);
         Assert.Null(page.NextCursor);
@@ -145,7 +137,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 3, cancellationToken: CT);
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.Null(page.NextCursor);
@@ -155,45 +149,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task CompoundKey_Ascending_FirstPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
-        var page = await _db.Items.ToCursorPageAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -202,51 +163,16 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task CompoundKey_Ascending_SecondPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
-        var first = await _db.Items.ToCursorPageAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cancellationToken: CT
-        );
-        var second = await _db.Items.ToCursorPageAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cursor: first.NextCursor,
-            cancellationToken: CT
-        );
+        var first = await _db
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
 
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
@@ -255,45 +181,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task CompoundKey_Descending_FirstPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([5, 4, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -302,54 +195,70 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task CompoundKey_Descending_SecondPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
-        var first = await _db.Items.ToCursorPageDescendingAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cancellationToken: CT
-        );
-        var second = await _db.Items.ToCursorPageDescendingAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 3,
-            cursor: first.NextCursor,
-            cancellationToken: CT
-        );
+        var first = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
 
         Assert.Equal([2, 1], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
+    }
+
+    [Fact]
+    public async Task CompoundKey_MixedDirection_FirstPage()
+    {
+        SeedCompound();
+
+        // CategoryId DESC, Id ASC: (3,5), (2,3), (2,4), (1,1), (1,2)
+        var page = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+
+        Assert.Equal([5, 3, 4], page.Items.Select(x => x.Id));
+        Assert.NotNull(page.NextCursor);
+    }
+
+    [Fact]
+    public async Task CompoundKey_MixedDirection_PaginatesStably()
+    {
+        SeedCompound();
+
+        var first = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
+
+        Assert.Equal([1, 2], second.Items.Select(x => x.Id));
+        Assert.Null(second.NextCursor);
+    }
+
+    [Fact]
+    public void UnorderedQuery_Throws()
+    {
+        var ex = Assert.Throws<InvalidOperationException>(
+            () => _db.Items.CursorPage(limit: 3)
+        );
+
+        Assert.Contains("ordered", ex.Message, StringComparison.OrdinalIgnoreCase);
+    }
+
+    [Fact]
+    public async Task ToCursorPageAsync_WithoutCursorPage_Throws()
+    {
+        await Assert.ThrowsAsync<InvalidOperationException>(
+            async () => await _db.Items.ToCursorPageAsync(CT)
+        );
     }
 
     [Fact]
@@ -365,7 +274,8 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         await _db.SaveChangesAsync(CT);
 
         var page = await _db
-            .Items.CursorPage(x => x.Id, limit: 3)
+            .Items.OrderBy(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -387,11 +297,13 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         await _db.SaveChangesAsync(CT);
 
         var first = await _db
-            .Items.CursorPage(x => x.Id, limit: 3)
+            .Items.OrderBy(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
         var second = await _db
-            .Items.CursorPage(x => x.Id, limit: 3, cursor: first.NextCursor)
+            .Items.OrderBy(x => x.Id)
+            .CursorPage(limit: 3, cursor: first.NextCursor)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -413,7 +325,8 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         await _db.SaveChangesAsync(CT);
 
         var page = await _db
-            .Items.CursorPageDescending(x => x.Id, limit: 3)
+            .Items.OrderByDescending(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -435,11 +348,13 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         await _db.SaveChangesAsync(CT);
 
         var first = await _db
-            .Items.CursorPageDescending(x => x.Id, limit: 3)
+            .Items.OrderByDescending(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
         var second = await _db
-            .Items.CursorPageDescending(x => x.Id, limit: 3, cursor: first.NextCursor)
+            .Items.OrderByDescending(x => x.Id)
+            .CursorPage(limit: 3, cursor: first.NextCursor)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -451,42 +366,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Split_CompoundKey_Ascending_FirstPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
         var page = await _db
-            .Items.CursorPage(x => new { x.CategoryId, x.Id }, limit: 3)
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -497,46 +382,18 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Split_CompoundKey_Ascending_SecondPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
         var first = await _db
-            .Items.CursorPage(x => new { x.CategoryId, x.Id }, limit: 3)
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
         var second = await _db
-            .Items.CursorPage(x => new { x.CategoryId, x.Id }, limit: 3, cursor: first.NextCursor)
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .CursorPage(limit: 3, cursor: first.NextCursor)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -547,42 +404,12 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Split_CompoundKey_Descending_FirstPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
         var page = await _db
-            .Items.CursorPageDescending(x => new { x.CategoryId, x.Id }, limit: 3)
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
@@ -593,55 +420,73 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task Split_CompoundKey_Descending_SecondPage()
     {
-        _db.Items.AddRange(
-            new TestEntity
-            {
-                Id = 1,
-                Name = "B",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 2,
-                Name = "A",
-                CategoryId = 1,
-            },
-            new TestEntity
-            {
-                Id = 3,
-                Name = "C",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 4,
-                Name = "D",
-                CategoryId = 2,
-            },
-            new TestEntity
-            {
-                Id = 5,
-                Name = "E",
-                CategoryId = 3,
-            }
-        );
-        await _db.SaveChangesAsync(CT);
+        SeedCompound();
 
         var first = await _db
-            .Items.CursorPageDescending(x => new { x.CategoryId, x.Id }, limit: 3)
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .CursorPage(limit: 3)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
         var second = await _db
-            .Items.CursorPageDescending(
-                x => new { x.CategoryId, x.Id },
-                limit: 3,
-                cursor: first.NextCursor
-            )
+            .Items.OrderByDescending(x => x.CategoryId)
+            .ThenByDescending(x => x.Id)
+            .CursorPage(limit: 3, cursor: first.NextCursor)
             .Select(x => ToDto(x))
             .ToCursorPageAsync(cancellationToken: CT);
 
         Assert.Equal([2, 1], second.Items.Select(x => x.Id));
         Assert.Null(second.NextCursor);
+    }
+
+    [Fact]
+    public async Task ProjectBeforePagination_FirstPage()
+    {
+        // Pattern: query.OrderBy(...).ProjectToDto().ToCursorPageAsync(limit)
+        // The projection sits between the ordering and the pagination call.
+        _db.Items.AddRange(
+            new TestEntity { Id = 1, Name = "A" },
+            new TestEntity { Id = 2, Name = "B" },
+            new TestEntity { Id = 3, Name = "C" },
+            new TestEntity { Id = 4, Name = "D" },
+            new TestEntity { Id = 5, Name = "E" }
+        );
+        await _db.SaveChangesAsync(CT);
+
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+
+        Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
+        Assert.NotNull(page.NextCursor);
+        Assert.True(page.HasMore);
+    }
+
+    [Fact]
+    public async Task ProjectBeforePagination_SecondPage()
+    {
+        _db.Items.AddRange(
+            new TestEntity { Id = 1, Name = "A" },
+            new TestEntity { Id = 2, Name = "B" },
+            new TestEntity { Id = 3, Name = "C" },
+            new TestEntity { Id = 4, Name = "D" },
+            new TestEntity { Id = 5, Name = "E" }
+        );
+        await _db.SaveChangesAsync(CT);
+
+        var first = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var second = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
+
+        Assert.Equal([4, 5], second.Items.Select(x => x.Id));
+        Assert.Null(second.NextCursor);
+        Assert.False(second.HasMore);
     }
 
     [Fact]
@@ -656,12 +501,13 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(
-            x => x.Id,
-            limit: 3,
-            options: new() { ComputeTotalCount = true },
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(
+                limit: 3,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
 
         Assert.Equal(5, page.TotalCount);
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
@@ -676,7 +522,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(x => x.Id, limit: 10, cancellationToken: CT);
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 10, cancellationToken: CT);
 
         Assert.Null(page.TotalCount);
     }
@@ -691,12 +539,13 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageDescendingAsync(
-            x => x.Id,
-            limit: 2,
-            options: new() { ComputeTotalCount = true },
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderByDescending(x => x.Id)
+            .ToCursorPageAsync(
+                limit: 2,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
 
         Assert.Equal(3, page.TotalCount);
         Assert.Equal([3, 2], page.Items.Select(x => x.Id));
@@ -727,12 +576,14 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.ToCursorPageAsync(
-            x => new { x.CategoryId, x.Id },
-            limit: 2,
-            options: new() { ComputeTotalCount = true },
-            cancellationToken: CT
-        );
+        var page = await _db
+            .Items.OrderBy(x => x.CategoryId)
+            .ThenBy(x => x.Id)
+            .ToCursorPageAsync(
+                limit: 2,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
 
         Assert.Equal(3, page.TotalCount);
     }
@@ -776,8 +627,8 @@ public sealed class ToCursorPageTests : IAsyncLifetime
 
         var page = await _db
             .Items.Where(x => x.CategoryId == 1)
+            .OrderBy(x => x.Id)
             .ToCursorPageAsync(
-                x => x.Id,
                 limit: 2,
                 options: new() { ComputeTotalCount = true },
                 cancellationToken: CT
@@ -799,23 +650,62 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.ToCursorPageAsync(
-            x => x.Id,
-            limit: 3,
-            options: new() { ComputeTotalCount = true },
-            cancellationToken: CT
-        );
-        var second = await _db.Items.ToCursorPageAsync(
-            x => x.Id,
-            limit: 3,
-            cursor: first.NextCursor,
-            options: new() { ComputeTotalCount = true },
-            cancellationToken: CT
-        );
+        var first = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(
+                limit: 3,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
+        var second = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(
+                limit: 3,
+                cursor: first.NextCursor,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
 
         Assert.Equal(5, first.TotalCount);
         Assert.Equal(5, second.TotalCount);
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
+    }
+
+    private void SeedCompound()
+    {
+        _db.Items.AddRange(
+            new TestEntity
+            {
+                Id = 1,
+                Name = "B",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 2,
+                Name = "A",
+                CategoryId = 1,
+            },
+            new TestEntity
+            {
+                Id = 3,
+                Name = "C",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 4,
+                Name = "D",
+                CategoryId = 2,
+            },
+            new TestEntity
+            {
+                Id = 5,
+                Name = "E",
+                CategoryId = 3,
+            }
+        );
+        _db.SaveChanges();
     }
 
     private static TestEntityDto ToDto(TestEntity item) => new() { Id = item.Id };

@@ -32,13 +32,14 @@ app.MapGet(
         CancellationToken cancellationToken = default
     ) =>
     {
-        return await db.MyEntities.ToCursorPageAsync(
-            x => x.Id,
-            limit,
-            cursor,
-            new() { ComputeTotalCount = computeTotalCount },
-            cancellationToken
-        );
+        return await db
+            .MyEntities.OrderBy(x => x.Id)
+            .ToCursorPageAsync(
+                limit,
+                cursor,
+                new() { ComputeTotalCount = computeTotalCount },
+                cancellationToken
+            );
     }
 );
 
