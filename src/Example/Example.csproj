@@ -6,15 +6,11 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Refit" Version="9.0.2" />
+    <PackageReference Include="Refit" Version="10.1.6" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Cursor.EntityFrameworkCore\Cursor.EntityFrameworkCore.csproj" />
-    <ProjectReference
-      Include="..\Cursor.SourceGenerators\Cursor.SourceGenerators.csproj"
-      OutputItemType="Analyzer"
-      ReferenceOutputAssembly="false"
-    />
+    <ProjectReference Include="..\Cursor.SourceGenerators\Cursor.SourceGenerators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
     <ProjectReference Include="..\Cursor\Cursor.csproj" />
   </ItemGroup>
 </Project>
