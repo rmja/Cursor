@@ -24,26 +24,41 @@ public class JsonCursorSerializer(JsonSerializerOptions? options = null) : ICurs
     /// <inheritdoc />
     public string EncodeCompoundCursor(List<object?> keyValues)
     {
-        var json = JsonSerializer.Serialize(keyValues, options);
-        return Convert.ToBase64String(Encoding.UTF8.GetBytes(json));
+        using var ms = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(ms))
+        {
+            writer.WriteStartArray();
+            foreach (var value in keyValues)
+            {
+                if (value is null)
+                {
+                    writer.WriteNullValue();
+                }
+                else
+                {
+                    JsonSerializer.Serialize(writer, value, value.GetType(), options);
+                }
+            }
+            writer.WriteEndArray();
+        }
+        return Convert.ToBase64String(ms.ToArray());
     }
 
     /// <inheritdoc />
     public List<object?> DecodeCompoundCursor(string cursor, List<Type> keyPropertyTypes)
     {
-        var json = Encoding.UTF8.GetString(Convert.FromBase64String(cursor));
-        var elements = JsonSerializer.Deserialize<JsonElement[]>(json, options)!;
-        if (elements.Length != keyPropertyTypes.Count)
+        var bytes = Convert.FromBase64String(cursor);
+        using var document = JsonDocument.Parse(bytes);
+        var root = document.RootElement;
+        if (root.GetArrayLength() != keyPropertyTypes.Count)
         {
             throw new InvalidOperationException("Cursor key count mismatch");
         }
 
         var values = new List<object?>();
-        for (int i = 0; i < keyPropertyTypes.Count; i++)
+        foreach (var (type, valueElement) in keyPropertyTypes.Zip(root.EnumerateArray()))
         {
-            var targetType = keyPropertyTypes[i];
-            var jsonElement = elements[i];
-            var value = jsonElement.Deserialize(targetType, options);
+            var value = valueElement.Deserialize(type, options);
             values.Add(value);
         }
 
