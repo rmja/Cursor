@@ -156,6 +156,7 @@ public static partial class CursorPaginationExtensions
                 Limit = limit,
                 Options = options,
                 OriginalQueryExpression = originalExpression,
+                QueryElementType = typeof(T),
                 SourceType = sourceType,
                 OrderedQueryExpression = orderedQueryExpression,
                 EncodeCursorFromSourceEntity = item =>
@@ -207,7 +208,7 @@ public static partial class CursorPaginationExtensions
             totalCount = await CountOriginalQueryAsync(
                 query.Provider,
                 info.OriginalQueryExpression,
-                info.SourceType,
+                info.QueryElementType,
                 cancellationToken
             );
         }
@@ -341,6 +342,7 @@ public static partial class CursorPaginationExtensions
         public required int Limit { get; init; }
         public required CursorOptions Options { get; init; }
         public required Expression OriginalQueryExpression { get; init; }
+        public required Type QueryElementType { get; init; }
         public required Type SourceType { get; init; }
         public required Expression OrderedQueryExpression { get; init; }
         public required Func<object, string> EncodeCursorFromSourceEntity { get; init; }

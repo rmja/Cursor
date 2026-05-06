@@ -671,6 +671,88 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         Assert.Equal([4, 5], second.Items.Select(x => x.Id));
     }
 
+    [Fact]
+    public async Task ComputeTotalCount_WithProjectionBeforeCursorPage_ReturnsCount()
+    {
+        _db.Items.AddRange(
+            new TestEntity { Id = 1, Name = "A" },
+            new TestEntity { Id = 2, Name = "B" },
+            new TestEntity { Id = 3, Name = "C" },
+            new TestEntity { Id = 4, Name = "D" },
+            new TestEntity { Id = 5, Name = "E" }
+        );
+        await _db.SaveChangesAsync(CT);
+
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(
+                limit: 3,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
+
+        Assert.Equal(5, page.TotalCount);
+        Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
+    }
+
+    [Fact]
+    public async Task ComputeTotalCount_WithProjectionAfterCursorPage_ReturnsCount()
+    {
+        _db.Items.AddRange(
+            new TestEntity { Id = 1, Name = "A" },
+            new TestEntity { Id = 2, Name = "B" },
+            new TestEntity { Id = 3, Name = "C" },
+            new TestEntity { Id = 4, Name = "D" },
+            new TestEntity { Id = 5, Name = "E" }
+        );
+        await _db.SaveChangesAsync(CT);
+
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .CursorPage(limit: 3, options: new() { ComputeTotalCount = true })
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(CT);
+
+        Assert.Equal(5, page.TotalCount);
+        Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
+    }
+
+    [Fact]
+    public async Task ComputeTotalCount_WithProjectionBeforeCursorPage_SecondPage_StillReturnsTotalCount()
+    {
+        _db.Items.AddRange(
+            new TestEntity { Id = 1, Name = "A" },
+            new TestEntity { Id = 2, Name = "B" },
+            new TestEntity { Id = 3, Name = "C" },
+            new TestEntity { Id = 4, Name = "D" },
+            new TestEntity { Id = 5, Name = "E" }
+        );
+        await _db.SaveChangesAsync(CT);
+
+        var first = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(
+                limit: 3,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
+        var second = await _db
+            .Items.OrderBy(x => x.Id)
+            .Select(x => ToDto(x))
+            .ToCursorPageAsync(
+                limit: 3,
+                cursor: first.NextCursor,
+                options: new() { ComputeTotalCount = true },
+                cancellationToken: CT
+            );
+
+        Assert.Equal(5, first.TotalCount);
+        Assert.Equal(5, second.TotalCount);
+        Assert.Equal([4, 5], second.Items.Select(x => x.Id));
+    }
+
     private void SeedCompound()
     {
         _db.Items.AddRange(
