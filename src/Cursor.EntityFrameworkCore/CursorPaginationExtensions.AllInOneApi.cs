@@ -57,4 +57,12 @@ public static partial class CursorPaginationExtensions
         CursorOptions? options = null,
         CancellationToken cancellationToken = default
     ) => query.CursorPage(limit, cursor, options).ToCursorPageAsync(cancellationToken);
+
+    /// <inheritdoc cref="ToCursorPageAsync{T}(IQueryable{T}, int, string?, CursorOptions?, CancellationToken)"/>
+    public static Task<CursorPage<T>> ToCursorPageAsync<T>(
+        this IQueryable<T> query,
+        int limit,
+        string? cursor,
+        CancellationToken cancellationToken
+    ) => query.CursorPage(limit, cursor, null).ToCursorPageAsync(cancellationToken);
 }

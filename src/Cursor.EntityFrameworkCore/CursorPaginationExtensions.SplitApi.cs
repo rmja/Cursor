@@ -90,16 +90,13 @@ public static partial class CursorPaginationExtensions
     {
         options ??= CursorOptions.Default;
 
-        var orderingInfo = OrderingHelpers.ExtractOrderingInfo(query.Expression);
-        if (orderingInfo is null)
-        {
-            throw new InvalidOperationException(
+        var orderingInfo =
+            OrderingHelpers.ExtractOrderingInfo(query.Expression)
+            ?? throw new InvalidOperationException(
                 "CursorPage requires the query to be ordered. Apply OrderBy/OrderByDescending "
                     + "(and optionally ThenBy/ThenByDescending) to the query before calling CursorPage. "
                     + "A Select projection between the ordering chain and CursorPage is allowed."
             );
-        }
-
         var originalExpression = query.Expression;
         var sourceType = orderingInfo.SourceType;
 
