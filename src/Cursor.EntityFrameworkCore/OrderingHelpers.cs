@@ -1,4 +1,5 @@
 using System.Linq.Expressions;
+using System.Reflection;
 
 namespace Cursor.EntityFrameworkCore;
 
@@ -34,6 +35,11 @@ internal sealed record OrderingInfo(
 /// </summary>
 internal static class OrderingHelpers
 {
+    private static readonly MethodInfo StringCompareMethod = typeof(string).GetMethod(
+        nameof(string.Compare),
+        [typeof(string), typeof(string)]
+    )!;
+
     /// <summary>
     /// Walks the outermost method-call chain of <paramref name="expression"/>, allowing
     /// passthrough projection operators (<c>Select</c>) to sit above the ordering chain,
@@ -155,9 +161,7 @@ internal static class OrderingHelpers
                         : Expression.AndAlso(equalityChain, equality);
             }
 
-            var comparison = descendings[i]
-                ? Expression.LessThan(keyExpr, constant)
-                : Expression.GreaterThan(keyExpr, constant);
+            var comparison = MakeRelationalComparison(keyExpr, constant, descendings[i]);
 
             Expression condition =
                 equalityChain is null
@@ -170,6 +174,105 @@ internal static class OrderingHelpers
         return result!;
     }
 
+    /// <summary>
+    /// Builds <c>key &gt; value</c>, or <c>key &lt; value</c> when the key is descending.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Expression.GreaterThan(Expression, Expression)"/> only accepts the numeric
+    /// primitives and types that define an <c>op_GreaterThan</c> operator. <see cref="string"/>,
+    /// <see cref="Guid"/>, <see cref="bool"/> and enums define no such operator - C# compares them
+    /// through other means - so building the comparison directly throws
+    /// <see cref="InvalidOperationException"/> for those. Enums are compared as their underlying
+    /// integral type, which is what the column stores anyway, and the rest go through
+    /// <see cref="string.Compare(string, string)"/> or <c>CompareTo</c>, which relational providers
+    /// translate back into a plain SQL comparison.
+    /// </remarks>
+    private static Expression MakeRelationalComparison(
+        Expression key,
+        Expression value,
+        bool descending
+    )
+    {
+        (key, value) = ConvertEnumToUnderlyingType(key, value);
+
+        if (!HasGreaterThanOperator(key.Type))
+        {
+            key = MakeCompareCall(key, value);
+            value = Expression.Constant(0);
+        }
+
+        return descending ? Expression.LessThan(key, value) : Expression.GreaterThan(key, value);
+    }
+
+    private static (Expression Key, Expression Value) ConvertEnumToUnderlyingType(
+        Expression key,
+        Expression value
+    )
+    {
+        var keyType = Nullable.GetUnderlyingType(key.Type) ?? key.Type;
+        if (!keyType.IsEnum)
+        {
+            return (key, value);
+        }
+
+        var underlyingType = Enum.GetUnderlyingType(keyType);
+        if (keyType != key.Type)
+        {
+            underlyingType = typeof(Nullable<>).MakeGenericType(underlyingType);
+        }
+
+        return (Expression.Convert(key, underlyingType), Expression.Convert(value, underlyingType));
+    }
+
+    /// <summary>
+    /// Whether <see cref="Expression.GreaterThan(Expression, Expression)"/> can compare
+    /// <paramref name="type"/> on its own. It can for the numeric primitives, and otherwise only
+    /// when the type defines the operator - which <see cref="decimal"/> and the date and time types
+    /// do, and <see cref="string"/>, <see cref="Guid"/> and <see cref="bool"/> do not.
+    /// </summary>
+    private static bool HasGreaterThanOperator(Type type)
+    {
+        var nonNullableType = Nullable.GetUnderlyingType(type) ?? type;
+
+        return Type.GetTypeCode(nonNullableType) switch
+        {
+            TypeCode.Char
+            or TypeCode.SByte
+            or TypeCode.Byte
+            or TypeCode.Int16
+            or TypeCode.UInt16
+            or TypeCode.Int32
+            or TypeCode.UInt32
+            or TypeCode.Int64
+            or TypeCode.UInt64
+            or TypeCode.Single
+            or TypeCode.Double => !nonNullableType.IsEnum,
+            _ => nonNullableType.GetMethod(
+                "op_GreaterThan",
+                BindingFlags.Public | BindingFlags.Static
+            ) is not null,
+        };
+    }
+
+    private static Expression MakeCompareCall(Expression key, Expression value)
+    {
+        if (key.Type == typeof(string))
+        {
+            return Expression.Call(StringCompareMethod, key, value);
+        }
+
+        var compareTo = key.Type.GetMethod(nameof(IComparable.CompareTo), [key.Type]);
+        if (compareTo is null || compareTo.ReturnType != typeof(int))
+        {
+            throw new InvalidOperationException(
+                $"Cursor pagination cannot order by '{key.Type}': it defines neither a "
+                    + $"greater-than operator nor a CompareTo({key.Type}) method. Order by a key "
+                    + "that does, such as the underlying value of a wrapper type."
+            );
+        }
+
+        return Expression.Call(key, compareTo, value);
+    }
     /// <summary>
     /// Walks a node that is known to be an <c>OrderBy</c>/<c>OrderByDescending</c>/
     /// <c>ThenBy</c>/<c>ThenByDescending</c> call and collects the keys in primary-first order.

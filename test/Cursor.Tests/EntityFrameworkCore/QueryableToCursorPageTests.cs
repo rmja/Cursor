@@ -5,7 +5,7 @@ using Xunit;
 
 namespace Cursor.Tests.EntityFrameworkCore;
 
-public sealed class ToCursorPageTests : IAsyncLifetime
+public sealed class QueryableToCursorPageTests : IAsyncLifetime
 {
     private SqliteConnection _connection = null!;
     private TestDbContext _db = null!;
@@ -41,7 +41,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var page = await _db.Items.OrderBy(x => x.Id).ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var page = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
 
         Assert.Equal([1, 2, 3], page.Items.Select(x => x.Id));
         Assert.NotNull(page.NextCursor);
@@ -60,7 +62,9 @@ public sealed class ToCursorPageTests : IAsyncLifetime
         );
         await _db.SaveChangesAsync(CT);
 
-        var first = await _db.Items.OrderBy(x => x.Id).ToCursorPageAsync(limit: 3, cancellationToken: CT);
+        var first = await _db
+            .Items.OrderBy(x => x.Id)
+            .ToCursorPageAsync(limit: 3, cancellationToken: CT);
         var second = await _db
             .Items.OrderBy(x => x.Id)
             .ToCursorPageAsync(limit: 3, cursor: first.NextCursor, cancellationToken: CT);
@@ -246,9 +250,7 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public void UnorderedQuery_Throws()
     {
-        var ex = Assert.Throws<InvalidOperationException>(
-            () => _db.Items.CursorPage(limit: 3)
-        );
+        var ex = Assert.Throws<InvalidOperationException>(() => _db.Items.CursorPage(limit: 3));
 
         Assert.Contains("ordered", ex.Message, StringComparison.OrdinalIgnoreCase);
     }
@@ -256,8 +258,8 @@ public sealed class ToCursorPageTests : IAsyncLifetime
     [Fact]
     public async Task ToCursorPageAsync_WithoutCursorPage_Throws()
     {
-        await Assert.ThrowsAsync<InvalidOperationException>(
-            async () => await _db.Items.ToCursorPageAsync(CT)
+        await Assert.ThrowsAsync<InvalidOperationException>(async () =>
+            await _db.Items.ToCursorPageAsync(CT)
         );
     }
 

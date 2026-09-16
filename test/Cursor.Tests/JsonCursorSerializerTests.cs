@@ -3,7 +3,7 @@ using System.Text.Json.Serialization;
 using Cursor.Serialization;
 using Xunit;
 
-namespace Cursor.Tests.EntityFrameworkCore;
+namespace Cursor.Tests;
 
 [JsonSerializable(typeof(int))]
 [JsonSerializable(typeof(string))]
