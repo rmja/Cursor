@@ -2,7 +2,7 @@ using Cursor.EntityFrameworkCore;
 
 namespace Cursor;
 
-public static partial class CursorPaginationExtensions
+public static partial class QueryableCursorPaginationExtensions
 {
     /// <summary>
     /// Converts an ordered query to a cursor-paginated result set in a single call.

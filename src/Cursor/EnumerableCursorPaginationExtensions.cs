@@ -1,6 +1,6 @@
 ﻿namespace Cursor;
 
-public static class CursorPaginationInMemoryExtensions
+public static class EnumerableCursorPaginationExtensions
 {
     /// <summary>
     /// Convenience overload of

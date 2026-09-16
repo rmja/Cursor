@@ -28,7 +28,7 @@ namespace Cursor;
 /// rows when items share a key value with the cursor.
 /// </para>
 /// </remarks>
-public static partial class CursorPaginationExtensions
+public static partial class QueryableCursorPaginationExtensions
 {
     private static readonly ConditionalWeakTable<Expression, CursorPageInfo> _cursorPageInfo = [];
 
@@ -273,7 +273,7 @@ public static partial class CursorPaginationExtensions
     )
     {
         return (Task<long>)
-            typeof(CursorPaginationExtensions)
+            typeof(QueryableCursorPaginationExtensions)
                 .GetMethod(
                     nameof(CountQueryCoreAsync),
                     BindingFlags.NonPublic | BindingFlags.Static
@@ -315,7 +315,7 @@ public static partial class CursorPaginationExtensions
             Expression.Constant(1)
         );
         return (Task<object>)
-            typeof(CursorPaginationExtensions)
+            typeof(QueryableCursorPaginationExtensions)
                 .GetMethod(
                     nameof(SingleSourceEntityCoreAsync),
                     BindingFlags.NonPublic | BindingFlags.Static
