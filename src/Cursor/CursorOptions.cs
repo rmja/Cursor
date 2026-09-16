@@ -1,4 +1,4 @@
-﻿using Cursor.Serialization;
+using Cursor.Serialization;
 
 namespace Cursor;
 
@@ -17,7 +17,7 @@ public class CursorOptions
 #pragma warning restore IDE0060 // Remove unused parameter
     {
         ComputeTotalCount = false;
-        CursorSerializer = new JsonCursorSerializer();
+        CursorSerializer = new PrimitiveCursorSerializer();
     }
 
     /// <summary>
@@ -27,7 +27,9 @@ public class CursorOptions
 
     /// <summary>
     /// Gets or sets the serializer used to encode and decode cursor values.
-    /// Defaults to <see cref="JsonCursorSerializer"/> with default json options.
+    /// Defaults to <see cref="PrimitiveCursorSerializer"/>, which covers the usual key types without
+    /// requiring reflection or serialization metadata, and is therefore safe under trimming and native AOT.
+    /// Assign a <see cref="JsonCursorSerializer"/> for key types it does not support.
     /// </summary>
     public ICursorSerializer CursorSerializer { get; set; }
 }
