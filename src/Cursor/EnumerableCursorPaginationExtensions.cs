@@ -3,26 +3,6 @@
 public static class EnumerableCursorPaginationExtensions
 {
     /// <summary>
-    /// Convenience overload of
-    /// <see cref="ToCursorPage{T, TKey}(IEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
-    /// that uses <see cref="Comparer{TKey}.Default"/>. Because the default comparer always
-    /// compares in ascending order, this overload is only correct for sequences ordered
-    /// ascending (<c>OrderBy</c>/<c>ThenBy</c>). For <c>OrderByDescending</c>/<c>ThenByDescending</c>
-    /// sequences, use the overload that takes an explicit <see cref="IComparer{TKey}"/> and pass
-    /// a comparer that sorts descending.
-    /// </summary>
-    /// <inheritdoc cref="ToCursorPage{T, TKey}(IEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
-    public static CursorPage<T> ToCursorPage<T, TKey>(
-        this IEnumerable<T> source,
-        Func<T, TKey> key,
-        int limit,
-        string? cursor = null,
-        CursorOptions? options = null
-    )
-        where TKey : notnull =>
-        ToCursorPage(source, key, Comparer<TKey>.Default, limit, cursor, options);
-
-    /// <summary>
     /// A page over a sequence that is already in memory.
     ///
     /// <para>
@@ -47,19 +27,6 @@ public static class EnumerableCursorPaginationExtensions
     /// the database orderings need a tie-breaker — two equal keys either lose a row across the
     /// boundary or repeat one.
     /// </param>
-    /// <param name="comparer">
-    /// The one the sequence was ordered by. A page ordered case-insensitively and compared
-    /// ordinally skips rows, and only for the names where the two disagree — which is the kind
-    /// of bug that shows up once, in production, for one company.
-    /// <para>
-    /// The comparer must describe the sequence's actual iteration order, not the natural order
-    /// of <typeparamref name="TKey"/>. For a sequence produced by <c>OrderByDescending</c>, pass
-    /// a comparer that sorts descending (for example <c>Comparer&lt;TKey&gt;.Create((a, b) =&gt;
-    /// b.CompareTo(a))</c>); the overload without a <paramref name="comparer"/> parameter always
-    /// uses <see cref="Comparer{TKey}.Default"/> and is therefore only correct for ascending
-    /// sequences.
-    /// </para>
-    /// </param>
     /// <param name="limit">
     /// The maximum number of items to return in the page. Zero is valid — for example to fetch
     /// only <see cref="CursorOptions.ComputeTotalCount"/> without any items — and produces an
@@ -68,14 +35,27 @@ public static class EnumerableCursorPaginationExtensions
     /// </param>
     /// <param name="cursor">Optional. The cursor from a previous page to continue pagination from.</param>
     /// <param name="options">Options to control the behavior of the cursor pagination.</param>
+    /// <param name="comparer">
+    /// The one the sequence was ordered by. A page ordered case-insensitively and compared
+    /// ordinally skips rows, and only for the names where the two disagree — which is the kind
+    /// of bug that shows up once, in production, for one company.
+    /// <para>
+    /// The comparer must describe the sequence's actual iteration order, not the natural order
+    /// of <typeparamref name="TKey"/>. For a sequence produced by <c>OrderByDescending</c>, pass
+    /// a comparer that sorts descending (for example <c>Comparer&lt;TKey&gt;.Create((a, b) =&gt;
+    /// b.CompareTo(a))</c>); omitting <paramref name="comparer"/> falls back to
+    /// <see cref="Comparer{TKey}.Default"/> and is therefore only correct for ascending
+    /// sequences.
+    /// </para>
+    /// </param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is negative.</exception>
     public static CursorPage<T> ToCursorPage<T, TKey>(
         this IEnumerable<T> source,
         Func<T, TKey> key,
-        IComparer<TKey> comparer,
         int limit,
         string? cursor = null,
-        CursorOptions? options = null
+        CursorOptions? options = null,
+        IComparer<TKey>? comparer = null
     )
         where TKey : notnull
     {
@@ -89,6 +69,7 @@ public static class EnumerableCursorPaginationExtensions
         }
 
         options ??= CursorOptions.Default;
+        comparer ??= Comparer<TKey>.Default;
         var computeTotalCount = options.ComputeTotalCount;
 
         var skipping = cursor is not null;
