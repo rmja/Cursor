@@ -4,23 +4,23 @@ public static class CursorPaginationInMemoryExtensions
 {
     /// <summary>
     /// Convenience overload of
-    /// <see cref="ToCursorPage{T, TKey}(IOrderedEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
+    /// <see cref="ToCursorPage{T, TKey}(IEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
     /// that uses <see cref="Comparer{TKey}.Default"/>. Because the default comparer always
     /// compares in ascending order, this overload is only correct for sequences ordered
     /// ascending (<c>OrderBy</c>/<c>ThenBy</c>). For <c>OrderByDescending</c>/<c>ThenByDescending</c>
     /// sequences, use the overload that takes an explicit <see cref="IComparer{TKey}"/> and pass
     /// a comparer that sorts descending.
     /// </summary>
-    /// <inheritdoc cref="ToCursorPage{T, TKey}(IOrderedEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
+    /// <inheritdoc cref="ToCursorPage{T, TKey}(IEnumerable{T}, Func{T, TKey}, IComparer{TKey}, int, string?, CursorOptions?)"/>
     public static CursorPage<T> ToCursorPage<T, TKey>(
-        this IOrderedEnumerable<T> ordered,
+        this IEnumerable<T> source,
         Func<T, TKey> key,
         int limit,
         string? cursor = null,
         CursorOptions? options = null
     )
         where TKey : notnull =>
-        ToCursorPage(ordered, key, Comparer<TKey>.Default, limit, cursor, options);
+        ToCursorPage(source, key, Comparer<TKey>.Default, limit, cursor, options);
 
     /// <summary>
     /// A page over a sequence that is already in memory.
@@ -38,15 +38,10 @@ public static class CursorPaginationInMemoryExtensions
     /// When <see cref="CursorOptions.ComputeTotalCount"/> is <see langword="true"/>, the full
     /// sequence is enumerated to produce <see cref="CursorPage{T}.TotalCount"/> — mirroring the
     /// separate <c>COUNT</c> query issued by the Entity Framework Core <c>ToCursorPageAsync</c>.
-    /// The count reflects every item in <paramref name="ordered"/>, not just those remaining
+    /// The count reflects every item in <paramref name="source"/>, not just those remaining
     /// after the cursor.
     /// </para>
     /// </summary>
-    /// <param name="ordered">
-    /// <see cref="IOrderedEnumerable{T}"/> rather than <see cref="IEnumerable{T}"/> on purpose:
-    /// a cursor over an unordered sequence is meaningless, and this is the one place the
-    /// compiler can say so.
-    /// </param>
     /// <param name="key">
     /// What the cursor is made of. It has to be unique across the sequence, for the same reason
     /// the database orderings need a tie-breaker — two equal keys either lose a row across the
@@ -75,7 +70,7 @@ public static class CursorPaginationInMemoryExtensions
     /// <param name="options">Options to control the behavior of the cursor pagination.</param>
     /// <exception cref="ArgumentOutOfRangeException"><paramref name="limit"/> is negative.</exception>
     public static CursorPage<T> ToCursorPage<T, TKey>(
-        this IOrderedEnumerable<T> ordered,
+        this IEnumerable<T> source,
         Func<T, TKey> key,
         IComparer<TKey> comparer,
         int limit,
@@ -104,7 +99,7 @@ public static class CursorPaginationInMemoryExtensions
         var items = new List<T>(limit + 1);
         long totalCount = 0;
 
-        foreach (var item in ordered)
+        foreach (var item in source)
         {
             if (computeTotalCount)
             {
