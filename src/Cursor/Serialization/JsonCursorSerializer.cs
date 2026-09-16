@@ -1,7 +1,7 @@
 ﻿using System.Text;
 using System.Text.Json;
 
-namespace Cursor.EntityFrameworkCore;
+namespace Cursor.Serialization;
 
 public class JsonCursorSerializer(JsonSerializerOptions? options = null) : ICursorSerializer
 {

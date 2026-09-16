@@ -1,4 +1,6 @@
-﻿namespace Cursor.EntityFrameworkCore;
+﻿using Cursor.Serialization;
+
+namespace Cursor;
 
 public class CursorOptions
 {

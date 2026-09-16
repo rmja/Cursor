@@ -1,6 +1,6 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using Cursor.EntityFrameworkCore;
+using Cursor.Serialization;
 using Xunit;
 
 namespace Cursor.Tests.EntityFrameworkCore;
@@ -13,8 +13,9 @@ internal partial class TestJsonContext : JsonSerializerContext;
 
 public class JsonCursorSerializerTests
 {
-    private static readonly JsonSerializerOptions StrictOptions =
-        new(TestJsonContext.Default.Options);
+    private static readonly JsonSerializerOptions StrictOptions = new(
+        TestJsonContext.Default.Options
+    );
 
     [Fact]
     public void EncodeCursor_And_DecodeCursor_Int_RoundTrips()

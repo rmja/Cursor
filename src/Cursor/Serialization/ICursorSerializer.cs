@@ -1,4 +1,4 @@
-﻿namespace Cursor.EntityFrameworkCore;
+﻿namespace Cursor.Serialization;
 
 /// <summary>
 /// Defines serialization and deserialization of cursor values used for cursor-based pagination.
