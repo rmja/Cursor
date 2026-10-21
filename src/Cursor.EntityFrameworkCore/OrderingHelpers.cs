@@ -336,11 +336,58 @@ internal static class OrderingHelpers
         );
     }
 
-    private sealed class ParameterRewriter(ParameterExpression source, ParameterExpression target)
+    /// <summary>
+    /// The body of <paramref name="selector"/> applied to <paramref name="argument"/>, with member
+    /// accesses on an object initializer or anonymous type in <paramref name="argument"/> replaced by
+    /// the assigned expression, so that composed projections stay translatable.
+    /// </summary>
+    public static Expression Inline(LambdaExpression selector, Expression argument)
+    {
+        var body = new ParameterRewriter(selector.Parameters[0], argument).Visit(selector.Body)!;
+        return new MemberInitAccessSimplifier().Visit(body)!;
+    }
+
+    private sealed class ParameterRewriter(ParameterExpression source, Expression target)
         : ExpressionVisitor
     {
         protected override Expression VisitParameter(ParameterExpression node) =>
             node == source ? target : base.VisitParameter(node);
+    }
+
+    private sealed class MemberInitAccessSimplifier : ExpressionVisitor
+    {
+        protected override Expression VisitMember(MemberExpression node)
+        {
+            var instance = Visit(node.Expression);
+            switch (instance)
+            {
+                case MemberInitExpression init:
+                    foreach (var binding in init.Bindings)
+                    {
+                        if (
+                            binding is MemberAssignment assignment
+                            && SameMember(assignment.Member, node.Member)
+                        )
+                        {
+                            return assignment.Expression;
+                        }
+                    }
+                    break;
+                case NewExpression { Members: { } members } created:
+                    for (var i = 0; i < members.Count; i++)
+                    {
+                        if (SameMember(members[i], node.Member))
+                        {
+                            return created.Arguments[i];
+                        }
+                    }
+                    break;
+            }
+            return node.Update(instance);
+        }
+
+        private static bool SameMember(MemberInfo a, MemberInfo b) =>
+            a == b || (a.Name == b.Name && a.DeclaringType == b.DeclaringType);
     }
 
     private sealed class NodeReplacer(Expression target, Expression replacement) : ExpressionVisitor

@@ -27,6 +27,12 @@ namespace Cursor;
 /// <c>OrderBy(x =&gt; x.Name).ThenBy(x =&gt; x.Id)</c>. Without a unique ordering, pages may skip or repeat
 /// rows when items share a key value with the cursor.
 /// </para>
+/// <para>
+/// The values for the next cursor are read from the database in the same query as the page, as the
+/// database computes the ordering keys. Keys may therefore be computed from navigations or subqueries
+/// (<c>OrderBy(x =&gt; x.Name ?? x.Addresses.OrderBy(a =&gt; a.Street).First().Street)</c>), without
+/// the navigations being loaded and whatever the query is projected to.
+/// </para>
 /// </remarks>
 public static partial class QueryableCursorPaginationExtensions
 {
@@ -150,6 +156,8 @@ public static partial class QueryableCursorPaginationExtensions
             paged.Expression,
             new CursorPageInfo
             {
+                PagedExpression = paged.Expression,
+                Keys = orderingInfo.Keys,
                 Limit = limit,
                 Options = options,
                 OriginalQueryExpression = originalExpression,
@@ -211,6 +219,32 @@ public static partial class QueryableCursorPaginationExtensions
         }
 
         var limit = info.Limit;
+
+        // Preferably the page and the key values of its rows in one query, the keys computed by the
+        // database exactly as it sorted and filtered on them.
+        var keyedQuery = BuildKeyedQuery<T>(query.Provider, query.Expression, info);
+        if (keyedQuery is not null)
+        {
+            var rows = await keyedQuery.ToListAsync(cancellationToken);
+            var rowsHaveMore = rows.Count > limit;
+            if (rowsHaveMore)
+            {
+                rows.RemoveAt(rows.Count - 1);
+            }
+
+            return new CursorPage<T>
+            {
+                Items = rows.Select(x => x.Item).ToList(),
+                NextCursor =
+                    (rowsHaveMore || rows.Count == int.MaxValue) && rows.Count > 0
+                        ? info.Options.CursorSerializer.EncodeCompoundCursor([.. rows[^1].Keys])
+                        : null,
+                TotalCount = totalCount,
+            };
+        }
+
+        // Operators after CursorPage other than Select: evaluate the keys in memory on the last
+        // source entity. Only exact for keys that are plain columns of a loaded entity.
         var items = await query.ToListAsync(cancellationToken);
         var hasMore = items.Count > limit;
 
@@ -245,6 +279,110 @@ public static partial class QueryableCursorPaginationExtensions
             NextCursor = nextCursor,
             TotalCount = totalCount,
         };
+    }
+
+    /// <summary>
+    /// Builds <c>ordered.Select(x =&gt; new CursorRow&lt;T&gt; { Item = projection(x), Keys = [k0(x), …] }).Take(n)</c>:
+    /// the page with the key values of each row, in a single query. <c>projection</c> is the
+    /// composition of the <c>Select</c>s between the ordering chain and the final query, on either
+    /// side of <see cref="CursorPage{T}"/>.
+    /// </summary>
+    /// <returns><c>null</c> when the final query has other operators than <c>Select</c> on top of the ordering.</returns>
+    private static IQueryable<CursorRow<T>>? BuildKeyedQuery<T>(
+        IQueryProvider provider,
+        Expression finalExpression,
+        CursorPageInfo info
+    )
+    {
+        // Select(Take(Select(ordered)))…: collect the projections, outermost first.
+        var projections = new List<LambdaExpression>();
+        var current = finalExpression;
+        while (TryGetSelector(current, out var selector, out var source))
+        {
+            projections.Add(selector);
+            current = source;
+        }
+        if (current != info.PagedExpression)
+        {
+            return null;
+        }
+
+        current = ((MethodCallExpression)current).Arguments[0];
+        while (current != info.OrderedQueryExpression)
+        {
+            if (!TryGetSelector(current, out var selector, out var source))
+            {
+                return null;
+            }
+            projections.Add(selector);
+            current = source;
+        }
+
+        var parameter = Expression.Parameter(info.SourceType, "x");
+        Expression item = parameter;
+        for (var i = projections.Count - 1; i >= 0; i--)
+        {
+            item = OrderingHelpers.Inline(projections[i], item);
+        }
+        if (item.Type != typeof(T))
+        {
+            return null;
+        }
+
+        var keys = OrderingHelpers
+            .RewriteKeyBodies(info.Keys, parameter)
+            .Select(x => Expression.Convert(x, typeof(object)));
+        var row = Expression.MemberInit(
+            Expression.New(typeof(CursorRow<T>)),
+            Expression.Bind(typeof(CursorRow<T>).GetProperty(nameof(CursorRow<T>.Item))!, item),
+            Expression.Bind(
+                typeof(CursorRow<T>).GetProperty(nameof(CursorRow<T>.Keys))!,
+                Expression.NewArrayInit(typeof(object), keys)
+            )
+        );
+        var select = Expression.Call(
+            typeof(Queryable),
+            nameof(Queryable.Select),
+            [info.SourceType, typeof(CursorRow<T>)],
+            info.OrderedQueryExpression,
+            Expression.Quote(Expression.Lambda(row, parameter))
+        );
+        var take = Expression.Call(
+            typeof(Queryable),
+            nameof(Queryable.Take),
+            [typeof(CursorRow<T>)],
+            select,
+            Expression.Constant(info.Limit < int.MaxValue ? info.Limit + 1 : int.MaxValue)
+        );
+        return provider.CreateQuery<CursorRow<T>>(take);
+    }
+
+    private static bool TryGetSelector(
+        Expression expression,
+        out LambdaExpression selector,
+        out Expression source
+    )
+    {
+        if (
+            expression
+                is MethodCallExpression
+                {
+                    Method.Name: nameof(Queryable.Select),
+                    Arguments: [var selectSource, var quoted],
+                } call
+            && call.Method.DeclaringType == typeof(Queryable)
+            && quoted
+                is UnaryExpression { Operand: LambdaExpression { Parameters.Count: 1 } lambda }
+        )
+        {
+            selector = lambda;
+            source = selectSource;
+            return true;
+        }
+
+        selector = null!;
+        source = null!;
+        return false;
     }
 
     private static CursorPageInfo? FindCursorPageInfo(Expression expression)
@@ -334,8 +472,19 @@ public static partial class QueryableCursorPaginationExtensions
         return (await query.SingleAsync(cancellationToken))!;
     }
 
+    /// <summary>A row of the keyed page query: the item and the values of its ordering keys.</summary>
+    private sealed class CursorRow<TItem>
+    {
+        public TItem Item { get; init; } = default!;
+        public object?[] Keys { get; init; } = [];
+    }
+
     private sealed class CursorPageInfo
     {
+        /// <summary>The <c>Take</c> that <see cref="CursorPage{T}"/> returns.</summary>
+        public required Expression PagedExpression { get; init; }
+
+        public required IReadOnlyList<OrderingKey> Keys { get; init; }
         public required int Limit { get; init; }
         public required CursorOptions Options { get; init; }
         public required Expression OriginalQueryExpression { get; init; }
