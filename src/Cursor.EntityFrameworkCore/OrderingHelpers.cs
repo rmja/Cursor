@@ -143,25 +143,31 @@ internal static class OrderingHelpers
             throw new InvalidOperationException("Cursor key count mismatch");
         }
 
+        // One node per key, shared by every place the key's value is compared against, so each
+        // value becomes a single parameter.
+        var values = new Expression[keyBodies.Count];
+        for (int i = 0; i < keyBodies.Count; i++)
+        {
+            values[i] = CursorParameter(lastKeyValues[i], keyBodies[i].Type);
+        }
+
         Expression? result = null;
         for (int i = 0; i < keyBodies.Count; i++)
         {
             var keyExpr = keyBodies[i];
-            var constant = Expression.Constant(lastKeyValues[i], keyExpr.Type);
 
             Expression? equalityChain = null;
             for (int j = 0; j < i; j++)
             {
                 var eqExpr = keyBodies[j];
-                var eqConst = Expression.Constant(lastKeyValues[j], eqExpr.Type);
-                var equality = Expression.Equal(eqExpr, eqConst);
+                var equality = Expression.Equal(eqExpr, values[j]);
                 equalityChain =
                     equalityChain is null
                         ? equality
                         : Expression.AndAlso(equalityChain, equality);
             }
 
-            var comparison = MakeRelationalComparison(keyExpr, constant, descendings[i]);
+            var comparison = MakeRelationalComparison(keyExpr, values[i], descendings[i]);
 
             Expression condition =
                 equalityChain is null
@@ -172,6 +178,39 @@ internal static class OrderingHelpers
         }
 
         return result!;
+    }
+
+    /// <summary>
+    /// The expression for a value decoded from a cursor, which EF Core sends to the database as a
+    /// parameter.
+    /// </summary>
+    /// <remarks>
+    /// EF Core writes a <see cref="ConstantExpression"/> into the SQL as a literal, but turns a
+    /// member read from a constant object - the shape the compiler gives a captured local
+    /// variable - into a parameter. With literals every page would be a different SQL statement:
+    /// EF Core would compile the query again for each cursor, and the database would cache a
+    /// separate plan for each one. So the value is read from a <see cref="CursorValue{T}"/>
+    /// holder instead.
+    /// </remarks>
+    private static Expression CursorParameter(object? value, Type type)
+    {
+        // Rejects a value that does not fit the key's type, as a plain constant would.
+        var checkedValue = Expression.Constant(value, type).Value;
+
+        var holderType = typeof(CursorValue<>).MakeGenericType(type);
+        var holder = Activator.CreateInstance(holderType, [checkedValue])!;
+        return Expression.Field(
+            Expression.Constant(holder),
+            holderType.GetField(nameof(CursorValue<object>.cursor))!
+        );
+    }
+
+    private sealed class CursorValue<T>(T value)
+    {
+        // EF Core names the parameter after this field, so the SQL reads "@cursor".
+#pragma warning disable IDE1006
+        public readonly T cursor = value;
+#pragma warning restore IDE1006
     }
 
     /// <summary>
@@ -250,7 +289,8 @@ internal static class OrderingHelpers
             _ => nonNullableType.GetMethod(
                 "op_GreaterThan",
                 BindingFlags.Public | BindingFlags.Static
-            ) is not null,
+            )
+                is not null,
         };
     }
 
@@ -273,6 +313,7 @@ internal static class OrderingHelpers
 
         return Expression.Call(key, compareTo, value);
     }
+
     /// <summary>
     /// Walks a node that is known to be an <c>OrderBy</c>/<c>OrderByDescending</c>/
     /// <c>ThenBy</c>/<c>ThenByDescending</c> call and collects the keys in primary-first order.

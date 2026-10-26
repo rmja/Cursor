@@ -6,7 +6,7 @@
     <Nullable>enable</Nullable>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Refit" Version="10.1.6" />
+    <PackageReference Include="Refit" Version="16.4.0" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Cursor.EntityFrameworkCore\Cursor.EntityFrameworkCore.csproj" />
